@@ -1,0 +1,61 @@
+<svg width="800" height="600" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="800" height="600" fill="#f8f9fa" />
+  
+  <!-- Title -->
+  <text x="400" y="40" font-family="Arial" font-size="24" text-anchor="middle" font-weight="bold">Application Architecture</text>
+  
+  <!-- Frontend Box -->
+  <rect x="50" y="100" width="300" height="400" rx="10" ry="10" fill="#e6f7ff" stroke="#1890ff" stroke-width="2" />
+  <text x="200" y="130" font-family="Arial" font-size="18" text-anchor="middle" font-weight="bold">Frontend (React)</text>
+  
+  <!-- Frontend Components -->
+  <rect x="80" y="160" width="240" height="80" rx="5" ry="5" fill="#ffffff" stroke="#1890ff" stroke-width="1" />
+  <text x="200" y="190" font-family="Arial" font-size="14" text-anchor="middle">Admin Pages</text>
+  <text x="200" y="210" font-family="Arial" font-size="12" text-anchor="middle" fill="#666">(Dashboard, Inventory, Users)</text>
+  
+  <rect x="80" y="260" width="240" height="80" rx="5" ry="5" fill="#ffffff" stroke="#1890ff" stroke-width="1" />
+  <text x="200" y="290" font-family="Arial" font-size="14" text-anchor="middle">Personnel Pages</text>
+  <text x="200" y="310" font-family="Arial" font-size="12" text-anchor="middle" fill="#666">(Userdash, MyRequest, Equipments)</text>
+  
+  <rect x="80" y="360" width="240" height="80" rx="5" ry="5" fill="#ffffff" stroke="#1890ff" stroke-width="1" />
+  <text x="200" y="390" font-family="Arial" font-size="14" text-anchor="middle">Authentication</text>
+  <text x="200" y="410" font-family="Arial" font-size="12" text-anchor="middle" fill="#666">(Login, Register, JWT Storage)</text>
+  
+  <!-- Backend Box -->
+  <rect x="450" y="100" width="300" height="400" rx="10" ry="10" fill="#f6ffed" stroke="#52c41a" stroke-width="2" />
+  <text x="600" y="130" font-family="Arial" font-size="18" text-anchor="middle" font-weight="bold">Backend (Express)</text>
+  
+  <!-- Backend Components -->
+  <rect x="480" y="160" width="240" height="80" rx="5" ry="5" fill="#ffffff" stroke="#52c41a" stroke-width="1" />
+  <text x="600" y="190" font-family="Arial" font-size="14" text-anchor="middle">API Routes</text>
+  <text x="600" y="210" font-family="Arial" font-size="12" text-anchor="middle" fill="#666">(authRoutes)</text>
+  
+  <rect x="480" y="260" width="240" height="80" rx="5" ry="5" fill="#ffffff" stroke="#52c41a" stroke-width="1" />
+  <text x="600" y="290" font-family="Arial" font-size="14" text-anchor="middle">Controllers</text>
+  <text x="600" y="310" font-family="Arial" font-size="12" text-anchor="middle" fill="#666">(authController)</text>
+  
+  <rect x="480" y="360" width="240" height="80" rx="5" ry="5" fill="#ffffff" stroke="#52c41a" stroke-width="1" />
+  <text x="600" y="390" font-family="Arial" font-size="14" text-anchor="middle">Database</text>
+  <text x="600" y="410" font-family="Arial" font-size="12" text-anchor="middle" fill="#666">(PostgreSQL)</text>
+  
+  <!-- Connection Lines -->
+  <line x1="350" y1="200" x2="450" y2="200" stroke="#1890ff" stroke-width="2" stroke-dasharray="5,5" />
+  <line x1="350" y1="300" x2="450" y2="300" stroke="#1890ff" stroke-width="2" stroke-dasharray="5,5" />
+  <line x1="350" y1="400" x2="450" y2="400" stroke="#1890ff" stroke-width="2" stroke-dasharray="5,5" />
+  
+  <!-- HTTP Labels -->
+  <text x="400" y="190" font-family="Arial" font-size="12" text-anchor="middle" fill="#1890ff">HTTP</text>
+  <text x="400" y="290" font-family="Arial" font-size="12" text-anchor="middle" fill="#1890ff">HTTP</text>
+  <text x="400" y="390" font-family="Arial" font-size="12" text-anchor="middle" fill="#1890ff">HTTP</text>
+  
+  <!-- Legend -->
+  <rect x="300" y="520" width="200" height="60" rx="5" ry="5" fill="#ffffff" stroke="#d9d9d9" stroke-width="1" />
+  <text x="400" y="540" font-family="Arial" font-size="14" text-anchor="middle" font-weight="bold">Legend</text>
+  
+  <rect x="320" y="550" width="20" height="10" fill="#e6f7ff" stroke="#1890ff" stroke-width="1" />
+  <text x="350" y="560" font-family="Arial" font-size="12" text-anchor="start">Frontend</text>
+  
+  <rect x="420" y="550" width="20" height="10" fill="#f6ffed" stroke="#52c41a" stroke-width="1" />
+  <text x="450" y="560" font-family="Arial" font-size="12" text-anchor="start">Backend</text>
+</svg>

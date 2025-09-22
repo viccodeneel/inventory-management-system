@@ -1,0 +1,237 @@
+/* MyRequests.css */
+.my-requests-container {
+    padding: 20px;
+    background-color: #f5f7fa;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  }
+  
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+  }
+  
+  .header h1 {
+    color: #333;
+    font-size: 24px;
+    margin: 0;
+  }
+  
+  .actions {
+    display: flex;
+    gap: 10px;
+  }
+  
+  .new-request-btn {
+    background-color: #1a8cff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 8px 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 500;
+    transition: background-color 0.2s;
+  }
+  
+  .new-request-btn:hover {
+    background-color: #0066cc;
+  }
+  
+  .tabss {
+    display: flex;
+    border-bottom: 1px solid #ddd;
+    margin-bottom: 20px;
+  }
+  
+  .tabb {
+    padding: 10px 20px;
+    background: none;
+    border: none;
+    border-bottom: 3px solid transparent;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 500;
+    color: #666;
+    transition: all 0.2s;
+  }
+  
+  .tabb:hover {
+    color: #1a8cff;
+  }
+  
+  .tabb.active {
+    color: #1a8cff;
+    border-bottom-color: #1a8cff;
+    background-color: transparent;
+  }
+  
+  .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+  }
+  
+  .section-header h2 {
+    font-size: 18px;
+    margin: 0;
+    color: #444;
+  }
+  
+  .filter select {
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background-color: white;
+    color: #333;
+  }
+  
+  .requests-table {
+    background-color: white;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+  
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  
+  thead {
+    background-color: #f2f2f2;
+  }
+  
+  th {
+    text-align: left;
+    padding: 12px 15px;
+    font-weight: 600;
+    color: #555;
+    border-bottom: 1px solid #ddd;
+  }
+  
+  td {
+    padding: 12px 15px;
+    border-bottom: 1px solid #eee;
+    color: #333;
+  }
+  
+  tr:last-child td {
+    border-bottom: none;
+  }
+  
+  .equipment-info {
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .equipment-name {
+    font-weight: 500;
+  }
+  
+  .equipment-id {
+    font-size: 12px;
+    color: #777;
+    margin-top: 3px;
+  }
+  
+  .status-badge {
+    display: inline-block;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+  }
+  
+  .status-approved {
+    background-color: #e6f7ee;
+    color: #1e7c45;
+  }
+  
+  .status-pending {
+    background-color: #fff8e6;
+    color: #b78105;
+  }
+  
+  .status-denied {
+    background-color: #fdeeee;
+    color: #d63939;
+  }
+  
+  .status-completed {
+    background-color: #e6f0ff;
+    color: #2c5cc5;
+  }
+  
+  .status-canceled {
+    background-color: #f2f2f2;
+    color: #666;
+  }
+  
+  .action-buttons {
+    display: flex;
+    gap: 5px;
+  }
+  
+  .action-buttons button {
+    width: 30px;
+    height: 30px;
+    border-radius: 4px;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+  
+  .view-btn {
+    background-color: #f0f0f0;
+    color: #555;
+  }
+  
+  .view-btn:hover {
+    background-color: #e0e0e0;
+  }
+  
+  .cancel-btn {
+    background-color: #fdeeee;
+    color: #d63939;
+  }
+  
+  .cancel-btn:hover {
+    background-color: #fbe0e0;
+  }
+  
+  .extend-btn {
+    background-color: #e6f7ee;
+    color: #1e7c45;
+  }
+  
+  .extend-btn:hover {
+    background-color: #d7f0e2;
+  }
+  
+  .request-again-btn {
+    background-color: #e6f0ff;
+    color: #2c5cc5;
+  }
+  
+  .request-again-btn:hover {
+    background-color: #d7e3f7;
+  }
+  
+  @media (max-width: 1024px) {
+    .requests-table {
+      overflow-x: auto;
+    }
+    
+    table {
+      min-width: 900px;
+    }
+  }
