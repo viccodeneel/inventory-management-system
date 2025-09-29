@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './Psettings.css';
 
@@ -38,6 +38,7 @@ const ProfileSettings = () => {
   
   // State for active tab
   const [activeTab, setActiveTab] = useState('settings');
+  const [loading, setLoading] = useState(true);
   
   // Initialize navigate from react-router-dom
   const navigate = useNavigate();
@@ -104,6 +105,97 @@ const ProfileSettings = () => {
     }, 2000);
   };
 
+  //Profile states
+  const [currentUser, setCurrentUser] = useState<{
+  name: string;
+  email: string;
+  role: string;
+} | null>(null);
+
+//Profile Funcetions
+const fetchCurrentUser = async () => {
+  try {
+    const token = localStorage.getItem('userToken');
+    
+    console.log('📍 fetchCurrentUser - Token:', !!token);
+    
+    if (!token) {
+      console.error('No token in fetchCurrentUser');
+      navigate('/');
+      return;
+    }
+
+    try {
+      // Split and decode the JWT
+      const parts = token.split('.');
+      console.log('Token parts:', parts.length);
+      
+      if (parts.length !== 3) {
+        throw new Error('Invalid token format');
+      }
+      
+      const payload = JSON.parse(atob(parts[1]));
+      console.log('✅ Decoded payload:', payload);
+      
+      setCurrentUser({
+        name: payload.name,
+        email: payload.email,
+        role: payload.role
+      });
+      
+      console.log('✅ Current user set:', payload.name);
+      
+    } catch (decodeError) {
+      console.error('❌ Token decode error:', decodeError);
+      localStorage.clear();
+      navigate('/');
+    }
+    
+  } catch (error) {
+    console.error('❌ Error in fetchCurrentUser:', error);
+    navigate('/');
+  }
+};
+
+// Update your useEffect to include fetchCurrentUser
+useEffect(() => {
+  const initializeData = async () => {
+    setLoading(true);
+    try {
+      await Promise.all([
+        fetchCurrentUser(), // Add this line
+      ]);
+    } catch (error) {
+      console.error('Error initializing data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  initializeData();
+}, []);
+
+// Helper function to get initials from name
+const getInitials = (name: string): string => {
+  return name
+    .split(' ')
+    .map(word => word.charAt(0))
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
+};
+
+// Helper function to format role for display
+const formatRole = (role: string): string => {
+  const roleMap: { [key: string]: string } = {
+    'admin': 'Administrator',
+    'personnel': 'Personnel',
+    'user': 'Team Member'
+  };
+  return roleMap[role.toLowerCase()] || 'Team Member';
+};
+
+
   return (
     <div className="app-container">
       {/* Logout loading overlay */}
@@ -168,12 +260,18 @@ const ProfileSettings = () => {
           </div>
         </div>
         <div className="profile-box">
-          <div className="profile-avatar">T</div>
-          <div className="profile-details">
-            <div className="profile-name">Thomas K.</div>
-            <div className="profile-position">Team Member</div>
-          </div>
-        </div>
+  <div className="profile-avatar">
+    {currentUser ? getInitials(currentUser.name) : 'U'}
+  </div>
+  <div className="profile-details">
+    <div className="profile-name">
+      {currentUser ? currentUser.name : 'Loading...'}
+    </div>
+    <div className="profile-position">
+      {currentUser ? formatRole(currentUser.role) : '...'}
+    </div>
+  </div>
+</div>
       </div>
       
       <div className="content-area">
@@ -195,26 +293,16 @@ const ProfileSettings = () => {
               
               <div className="form-row">
                 <div className="form-group">
-                  <label htmlFor="firstName">First Name</label>
+                  <label htmlFor="firstName">Full Name</label>
                   <input 
                     type="text" 
                     id="firstName" 
                     name="firstName" 
-                    value={formData.firstName} 
+                    value={currentUser ? currentUser.name : 'Loading...'} 
                     onChange={handleChange} 
                   />
                 </div>
-                
-                <div className="form-group">
-                  <label htmlFor="lastName">Last Name</label>
-                  <input 
-                    type="text" 
-                    id="lastName" 
-                    name="lastName" 
-                    value={formData.lastName} 
-                    onChange={handleChange} 
-                  />
-                </div>
+
               </div>
               
               <div className="form-group">
@@ -223,7 +311,7 @@ const ProfileSettings = () => {
                   type="email" 
                   id="email" 
                   name="email" 
-                  value={formData.email} 
+                  value={currentUser ? currentUser.email : 'Loading...'} 
                   onChange={handleChange} 
                 />
               </div>
@@ -234,7 +322,7 @@ const ProfileSettings = () => {
                   type="text" 
                   id="role" 
                   name="role" 
-                  value={formData.role} 
+                  value={currentUser ? formatRole(currentUser.role) : 'Loading...'} 
                   readOnly 
                   className="readonly-input"
                 />
@@ -244,17 +332,6 @@ const ProfileSettings = () => {
 
             <div className="settings-section">
               <h2>Account Security</h2>
-              
-              <div className="form-group">
-                <label htmlFor="username">Username</label>
-                <input 
-                  type="text" 
-                  id="username" 
-                  name="username" 
-                  value={formData.username} 
-                  onChange={handleChange} 
-                />
-              </div>
               
               <div className="form-group password-group">
                 <label htmlFor="currentPassword">Current Password</label>

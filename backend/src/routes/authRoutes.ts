@@ -426,4 +426,44 @@ router.post("/create-admin", async (req, res) => {
   }
 });
 
+//Profile Route
+// In your auth.ts file
+router.get("/me", async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    
+    if (!token) {
+      return res.status(401).json({ message: "No token provided" });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as any;
+    
+    // Fetch from users table
+    const userResult = await pool.query(
+      "SELECT id, name, email, phone, department, role FROM users WHERE id = $1",
+      [decoded.id]
+    );
+    
+    if (userResult.rows.length === 0) {
+      // Try approved_users table
+      const approvedResult = await pool.query(
+        "SELECT id, name, generated_email as email, phone, department, requested_role as role FROM approved_users WHERE id = $1",
+        [decoded.id]
+      );
+      
+      if (approvedResult.rows.length === 0) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      return res.json(approvedResult.rows[0]);
+    }
+    
+    res.json(userResult.rows[0]);
+    
+  } catch (err) {
+    console.error("Error fetching current user:", err);
+    res.status(401).json({ message: "Invalid token" });
+  }
+});
+
 export default router;

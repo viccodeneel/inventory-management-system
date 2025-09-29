@@ -79,6 +79,101 @@ const Pages2 = () => {
     }
   };
 
+  //Profile View
+  // Add this to your state declarations (near the top with other useState calls)
+const [currentUser, setCurrentUser] = useState<{
+  name: string;
+  email: string;
+  role: string;
+} | null>(null);
+
+// Add this function to fetch current user data
+const fetchCurrentUser = async () => {
+  try {
+    const token = localStorage.getItem('userToken');
+    
+    console.log('📍 fetchCurrentUser - Token:', !!token);
+    
+    if (!token) {
+      console.error('No token in fetchCurrentUser');
+      navigate('/');
+      return;
+    }
+
+    try {
+      // Split and decode the JWT
+      const parts = token.split('.');
+      console.log('Token parts:', parts.length);
+      
+      if (parts.length !== 3) {
+        throw new Error('Invalid token format');
+      }
+      
+      const payload = JSON.parse(atob(parts[1]));
+      console.log('✅ Decoded payload:', payload);
+      
+      setCurrentUser({
+        name: payload.name,
+        email: payload.email,
+        role: payload.role
+      });
+      
+      console.log('✅ Current user set:', payload.name);
+      
+    } catch (decodeError) {
+      console.error('❌ Token decode error:', decodeError);
+      localStorage.clear();
+      navigate('/');
+    }
+    
+  } catch (error) {
+    console.error('❌ Error in fetchCurrentUser:', error);
+    navigate('/');
+  }
+};
+
+// Update your useEffect to include fetchCurrentUser
+useEffect(() => {
+  const initializeData = async () => {
+    setLoading(true);
+    try {
+      await Promise.all([
+        fetchCurrentUser(), // Add this line
+        fetchEquipmentStats(),
+        fetchEquipmentList(),
+        fetchUserRequests()
+      ]);
+    } catch (error) {
+      console.error('Error initializing data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  initializeData();
+}, []);
+
+// Helper function to get initials from name
+const getInitials = (name: string): string => {
+  return name
+    .split(' ')
+    .map(word => word.charAt(0))
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
+};
+
+// Helper function to format role for display
+const formatRole = (role: string): string => {
+  const roleMap: { [key: string]: string } = {
+    'admin': 'Administrator',
+    'personnel': 'Personnel',
+    'user': 'Team Member'
+  };
+  return roleMap[role.toLowerCase()] || 'Team Member';
+};
+
+
   // Fetch equipment list
   const fetchEquipmentList = async () => {
     try {
@@ -386,12 +481,18 @@ const Pages2 = () => {
           </div>
         </div>
         <div className="profile-box">
-          <div className="profile-avatar">T</div>
-          <div className="profile-details">
-            <div className="profile-name">Thomas K.</div>
-            <div className="profile-position">Team Member</div>
-          </div>
-        </div>
+  <div className="profile-avatar">
+    {currentUser ? getInitials(currentUser.name) : 'U'}
+  </div>
+  <div className="profile-details">
+    <div className="profile-name">
+      {currentUser ? currentUser.name : 'Loading...'}
+    </div>
+    <div className="profile-position">
+      {currentUser ? currentUser.name : 'Loading...'}
+    </div>
+  </div>
+</div>
       </div>
       
       <div className="content-area">

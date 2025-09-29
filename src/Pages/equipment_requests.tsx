@@ -755,7 +755,6 @@ const EquipmentRequests = () => {
                       <th>Request ID</th>
                       <th>User</th>
                       <th>Equipment</th>
-                      <th>Purpose</th>
                       <th>Request Date</th>
                       <th>Return Date</th>
                       {activeTab === 'approved' && <th>Approval Code</th>}
@@ -774,9 +773,7 @@ const EquipmentRequests = () => {
                           <td>
                             <div className="user-info">
                               <div className="user-name">{request.user_name}</div>
-                              {request.user_email && (
-                                <div className="user-email">{request.user_email}</div>
-                              )}
+                              
                             </div>
                           </td>
                           <td>
@@ -785,21 +782,7 @@ const EquipmentRequests = () => {
                               <div className="equipment-serial">{request.equipment_serial_number}</div>
                             </div>
                           </td>
-                          <td>
-                            <div className="purpose-info">
-                              {request.purpose && (
-                                <div className="purpose-text">{request.purpose}</div>
-                              )}
-                              {request.notes && (
-                                <div className="notes-text" title={request.notes}>
-                                  {request.notes.length > 50 
-                                    ? `${request.notes.substring(0, 50)}...` 
-                                    : request.notes
-                                  }
-                                </div>
-                              )}
-                            </div>
-                          </td>
+                          
                           <td>{new Date(request.request_date).toLocaleDateString()}</td>
                           <td>{new Date(request.expected_return_date).toLocaleDateString()}</td>
                           {activeTab === 'approved' && (

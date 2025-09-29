@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './Equipments.css';
+import SuccessModal from '../components/UI/SuccessModal';
 
 interface Equipment {
   id: number;
@@ -102,6 +103,36 @@ const Equipment = () => {
       console.error('Error fetching equipment list:', error);
     }
   };
+
+   // Success Modal State
+const [successModal, setSuccessModal] = useState({
+  isOpen: false,
+  title: '',
+  message: '',
+  type: 'success' as 'success' | 'error'
+});
+
+//Helper 
+// Success Modal Functions
+const showSuccessModal = (title: string, message: string, type: 'success' | 'error' = 'success') => {
+  setSuccessModal({
+    isOpen: true,
+    title,
+    message,
+    type
+  });
+};
+
+
+
+const closeSuccessModal = () => {
+  setSuccessModal({
+    isOpen: false,
+    title: '',
+    message: '',
+    type: 'success'
+  });
+};
 
   // Initialize data on component mount
   useEffect(() => {
@@ -267,8 +298,8 @@ const Equipment = () => {
           equipment_location: selectedEquipment.location,
           request_date: new Date().toISOString(),
           expected_return_date: returnDate,
-          // user_id: getCurrentUserId(), // Add when auth is ready
-          user_name: 'Thomas K.', // Replace with actual user name from auth
+         // user_id: getCurrentUserId(), // Add when auth is ready
+          user_name: currentUser ? currentUser.name : 'Loading...', // Replace with actual user name from auth
           status: 'pending'
         }),
       });
@@ -277,7 +308,7 @@ const Equipment = () => {
         throw new Error('Failed to submit request');
       }
 
-      alert('Equipment request submitted successfully! Your request is now pending approval.');
+      showSuccessModal('Success', 'Equipment request submitted successfully! Your request is now pending approval.');
       closeRequestModal();
       
       // Refresh data
@@ -287,7 +318,7 @@ const Equipment = () => {
       ]);
     } catch (error) {
       console.error('Error requesting equipment:', error);
-      alert('Failed to submit request. Please try again.');
+      showSuccessModal('Error', 'Failed to submit request. Please try again.');
     } finally {
       setSubmitting(false);
     }
@@ -302,6 +333,97 @@ const Equipment = () => {
   const isRequestable = (status: string): boolean => {
     return status.toLowerCase() === 'available';
   };
+
+
+  //Profile states
+  const [currentUser, setCurrentUser] = useState<{
+  name: string;
+  email: string;
+  role: string;
+} | null>(null);
+
+//Profile Funcetions
+const fetchCurrentUser = async () => {
+  try {
+    const token = localStorage.getItem('userToken');
+    
+    console.log('📍 fetchCurrentUser - Token:', !!token);
+    
+    if (!token) {
+      console.error('No token in fetchCurrentUser');
+      navigate('/');
+      return;
+    }
+
+    try {
+      // Split and decode the JWT
+      const parts = token.split('.');
+      console.log('Token parts:', parts.length);
+      
+      if (parts.length !== 3) {
+        throw new Error('Invalid token format');
+      }
+      
+      const payload = JSON.parse(atob(parts[1]));
+      console.log('✅ Decoded payload:', payload);
+      
+      setCurrentUser({
+        name: payload.name,
+        email: payload.email,
+        role: payload.role
+      });
+      
+      console.log('✅ Current user set:', payload.name);
+      
+    } catch (decodeError) {
+      console.error('❌ Token decode error:', decodeError);
+      localStorage.clear();
+      navigate('/');
+    }
+    
+  } catch (error) {
+    console.error('❌ Error in fetchCurrentUser:', error);
+    navigate('/');
+  }
+};
+
+// Update your useEffect to include fetchCurrentUser
+useEffect(() => {
+  const initializeData = async () => {
+    setLoading(true);
+    try {
+      await Promise.all([
+        fetchCurrentUser(), // Add this line
+      ]);
+    } catch (error) {
+      console.error('Error initializing data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  initializeData();
+}, []);
+
+// Helper function to get initials from name
+const getInitials = (name: string): string => {
+  return name
+    .split(' ')
+    .map(word => word.charAt(0))
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
+};
+
+// Helper function to format role for display
+const formatRole = (role: string): string => {
+  const roleMap: { [key: string]: string } = {
+    'admin': 'Administrator',
+    'personnel': 'Personnel',
+    'user': 'Team Member'
+  };
+  return roleMap[role.toLowerCase()] || 'Team Member';
+};
 
   if (loading) {
     return (
@@ -401,7 +523,7 @@ const Equipment = () => {
                   </div>
                   <div className="detail-item full-width">
                     <label>Requested By:</label>
-                    <span>Thomas K. (Team Member)</span>
+                   <h4> {currentUser ? currentUser.name : 'Loading...'}  ({currentUser ? formatRole(currentUser.role) : 'Loading...'})</h4>
                   </div>
                 </div>
               </div>
@@ -489,12 +611,18 @@ const Equipment = () => {
           </div>
         </div>
         <div className="profile-box">
-          <div className="profile-avatar">T</div>
-          <div className="profile-details">
-            <div className="profile-name">Thomas K.</div>
-            <div className="profile-position">Team Member</div>
-          </div>
-        </div>
+  <div className="profile-avatar">
+    {currentUser ? getInitials(currentUser.name) : 'U'}
+  </div>
+  <div className="profile-details">
+    <div className="profile-name">
+      {currentUser ? currentUser.name : 'Loading...'}
+    </div>
+    <div className="profile-position">
+      {currentUser ? formatRole(currentUser.role) : '...'}
+    </div>
+  </div>
+</div>
       </div>
       
       <div className="content-area">
@@ -712,8 +840,17 @@ const Equipment = () => {
           </div>
         </div>
       </div>
+
+      <SuccessModal
+  isOpen={successModal.isOpen}
+  onClose={closeSuccessModal}
+  title={successModal.title}
+  message={successModal.message}
+  type={successModal.type}
+/>
     </div>
   );
 };
+
 
 export default Equipment;

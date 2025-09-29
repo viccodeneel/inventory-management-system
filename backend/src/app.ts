@@ -1,20 +1,25 @@
-// src/app.ts
+// index.ts (or app.ts)
 import express from "express";
-import cors from "cors";
-import dotenv from "dotenv";
-import authRoutes from "./routes/authRoutes.js";
-
-dotenv.config();
+import path from "path";
+import authRoutes from "./routes/authRoutes.js"; // Adjust path as needed
 
 const app = express();
 
-app.use(cors());
+// Middleware
 app.use(express.json());
 
-// health check
-app.get("/", (_, res) => res.send("Server is up ✅"));
+// Serve API routes
+app.use("/api", authRoutes); // Mount authRoutes at /api
 
-// mount auth routes
-app.use("/api/auth", authRoutes);
+// Serve static files (e.g., React build)
+app.use(express.static(path.join(__dirname, "public"))); // Adjust path to your build folder
 
-export default app;
+// Catch-all route for SPA (must come AFTER API routes)
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html")); // Adjust path as needed
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});

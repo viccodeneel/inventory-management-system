@@ -7,6 +7,8 @@ import {
 } from 'lucide-react';
 import './requests.css';
 import './Sidebar.css';
+import ActionModal from '../components/UI/ActionModal';
+import SuccessModal from '../components/UI/SuccessModal';
 
 interface PendingRequest {
   id: number;
@@ -54,6 +56,174 @@ const navigate = useNavigate();
   const [activeNavItem, setActiveNavItem] = useState('requests');
    const [, setCurrentView] = useState('dashboard');
    const [isLoggingOut, setIsLoggingOut] = useState<boolean>(false);
+
+   //New State
+   const [modalState, setModalState] = useState({
+  isOpen: false,
+  type: null as 'approve' | 'reject' | 'suspend' | 'block' | null,
+  requestId: null as number | null,
+  title: '',
+  label: '',
+  placeholder: '',
+  confirmText: '',
+  confirmButtonClass: ''
+});
+
+// Success Modal State
+const [successModal, setSuccessModal] = useState({
+  isOpen: false,
+  title: '',
+  message: '',
+  type: 'success' as 'success' | 'error'
+});
+
+//New Helper Functions
+// Action Modal Functions
+const openModal = (requestId: number, type: 'approve' | 'reject' | 'suspend' | 'block') => {
+  const configs = {
+    approve: {
+      title: 'Approve Request',
+      label: 'Admin notes (optional):',
+      placeholder: 'Enter approval notes (optional)',
+      confirmText: 'Approve Request',
+      confirmButtonClass: 'btn-success'
+    },
+    reject: {
+      title: 'Reject Request',
+      label: 'Reason for rejection:',
+      placeholder: 'Enter reason for rejection (optional)',
+      confirmText: 'Reject Request',
+      confirmButtonClass: 'btn-danger'
+    },
+    suspend: {
+      title: 'Suspend User',
+      label: 'Reason for suspension:',
+      placeholder: 'Enter reason for suspension (optional)',
+      confirmText: 'Suspend User',
+      confirmButtonClass: 'btn-warning'
+    },
+    block: {
+      title: 'Block User',
+      label: 'Reason for blocking:',
+      placeholder: 'Enter reason for blocking (optional)',
+      confirmText: 'Block User',
+      confirmButtonClass: 'btn-dark'
+    }
+  };
+
+  setModalState({
+    isOpen: true,
+    type,
+    requestId,
+    ...configs[type]
+  });
+};
+
+const closeModal = () => {
+  setModalState({
+    isOpen: false,
+    type: null,
+    requestId: null,
+    title: '',
+    label: '',
+    placeholder: '',
+    confirmText: '',
+    confirmButtonClass: ''
+  });
+};
+
+// Success Modal Functions
+const showSuccessModal = (title: string, message: string, type: 'success' | 'error' = 'success') => {
+  setSuccessModal({
+    isOpen: true,
+    title,
+    message,
+    type
+  });
+};
+
+const closeSuccessModal = () => {
+  setSuccessModal({
+    isOpen: false,
+    title: '',
+    message: '',
+    type: 'success'
+  });
+};
+
+// Main Action Handler
+const handleModalConfirm = async (reason: string) => {
+  if (!modalState.requestId || !modalState.type) return;
+
+  setActionLoading(true);
+  try {
+    const trimmedReason = reason.trim();
+    let endpoint = '';
+    let defaultReason = '';
+    let successTitle = '';
+    let successMessage = '';
+
+    switch (modalState.type) {
+      case 'approve':
+        endpoint = `approve-user/${modalState.requestId}`;
+        defaultReason = 'Approved by admin';
+        successTitle = 'Request Approved';
+        successMessage = 'User approved successfully! Credentials sent via email.';
+        break;
+      case 'reject':
+        endpoint = `reject-user/${modalState.requestId}`;
+        defaultReason = 'Rejected by admin';
+        successTitle = 'Request Rejected';
+        successMessage = 'User request rejected. Notification sent via email.';
+        break;
+      case 'suspend':
+        endpoint = `suspend-user/${modalState.requestId}`;
+        defaultReason = 'Suspended by admin';
+        successTitle = 'User Suspended';
+        successMessage = 'User suspended successfully. Notification sent via email.';
+        break;
+      case 'block':
+        endpoint = `block-user/${modalState.requestId}`;
+        defaultReason = 'Blocked by admin';
+        successTitle = 'User Blocked';
+        successMessage = 'User blocked successfully. Notification sent via email.';
+        break;
+    }
+
+    const finalReason = trimmedReason || defaultReason;
+
+    const response = await fetch(`http://localhost:5000/api/admin/${endpoint}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ admin_notes: finalReason }),
+    });
+
+    if (!response.ok) throw new Error(`Failed to ${modalState.type} user`);
+
+    await fetchAllData();
+    setSelectedRequest(null);
+    closeModal();
+    
+    // Show success modal instead of alert
+    showSuccessModal(successTitle, successMessage, 'success');
+    
+  } catch (error) {
+    console.error(`Error ${modalState.type}ing user:`, error);
+    closeModal();
+    
+    // Show error modal instead of alert
+    showSuccessModal(
+      'Action Failed', 
+      `Error ${modalState.type}ing user. Please try again.`, 
+      'error'
+    );
+  } finally {
+    setActionLoading(false);
+  }
+};
+
+//Success Modal
+
 
   // Navigation items
   const navigationItems: NavigationItem[] = [
@@ -115,155 +285,23 @@ const fetchAllData = async () => {
   };
 
   // Handle approve function
-const handleApprove = async (requestId: number): Promise<void> => {
-  setActionLoading(true);
-  try {
-    const adminNotes = prompt("Admin notes (optional):");
-    
-    // ❌ Check if user cancelled the prompt
-    if (adminNotes === null) {
-      console.log("User cancelled approval");
-      return; // Exit early if cancelled
-    }
-    
-    // Use the notes or default if empty string
-    const notes = adminNotes.trim() || "Approved by admin";
-
-    const response = await fetch(
-      `http://localhost:5000/api/admin/approve-user/${requestId}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ admin_notes: notes }),
-      }
-    );
-
-    if (!response.ok) throw new Error("Failed to approve user");
-
-    // 🔥 FIXED: Refetch all data
-    await fetchAllData();
-    setSelectedRequest(null);
-    alert("✅ User approved successfully! Credentials sent via email.");
-  } catch (error) {
-    console.error("Error approving user:", error);
-    alert("Error approving user. Please try again.");
-  } finally {
-    setActionLoading(false);
-  }
+const handleApprove = (requestId: number): void => {
+  openModal(requestId, 'approve');
 };
 
 // Handle reject function
-const handleReject = async (requestId: number): Promise<void> => {
-  setActionLoading(true);
-  try {
-    const rejectionReason = prompt("Reason for rejection:");
-    
-    // ❌ Check if user cancelled the prompt
-    if (rejectionReason === null) {
-      console.log("User cancelled rejection");
-      return; // Exit early if cancelled
-    }
-    
-    // Use the reason or default if empty string
-    const reason = rejectionReason.trim() || "Rejected by admin";
-
-    const response = await fetch(
-      `http://localhost:5000/api/admin/reject-user/${requestId}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ admin_notes: reason }),
-      }
-    );
-
-    if (!response.ok) throw new Error("Failed to reject user");
-
-    // 🔥 FIXED: Refetch all data
-    await fetchAllData();
-    setSelectedRequest(null);
-    alert("🚫 User request rejected. Notification sent via email.");
-  } catch (error) {
-    console.error("Error rejecting user:", error);
-    alert("Error rejecting user. Please try again.");
-  } finally {
-    setActionLoading(false);
-  }
+const handleReject = (requestId: number): void => {
+  openModal(requestId, 'reject');
 };
 
 // Handle suspend function
-const handleSuspend = async (requestId: number): Promise<void> => {
-  setActionLoading(true);
-  try {
-    const suspensionReason = prompt("Reason for suspension:");
-    
-    // ❌ Check if user cancelled the prompt
-    if (suspensionReason === null) {
-      console.log("User cancelled suspension");
-      return; // Exit early if cancelled
-    }
-    
-    // Use the reason or default if empty string
-    const reason = suspensionReason.trim() || "Suspended by admin";
-
-    const response = await fetch(
-      `http://localhost:5000/api/admin/suspend-user/${requestId}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ admin_notes: reason }),
-      }
-    );
-
-    if (!response.ok) throw new Error("Failed to suspend user");
-
-    // 🔥 FIXED: Refetch all data
-    await fetchAllData();
-    setSelectedRequest(null);
-    alert("⏸ User suspended successfully. Notification sent via email.");
-  } catch (error) {
-    console.error("Error suspending user:", error);
-    alert("Error suspending user. Please try again.");
-  } finally {
-    setActionLoading(false);
-  }
+const handleSuspend = (requestId: number): void => {
+  openModal(requestId, 'suspend');
 };
 
 // Handle block function
-const handleBlock = async (requestId: number): Promise<void> => {
-  setActionLoading(true);
-  try {
-    const blockReason = prompt("Reason for blocking:");
-    
-    // ❌ Check if user cancelled the prompt
-    if (blockReason === null) {
-      console.log("User cancelled blocking");
-      return; // Exit early if cancelled
-    }
-    
-    // Use the reason or default if empty string
-    const reason = blockReason.trim() || "Blocked by admin";
-
-    const response = await fetch(
-      `http://localhost:5000/api/admin/block-user/${requestId}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ admin_notes: reason }),
-      }
-    );
-
-    if (!response.ok) throw new Error("Failed to block user");
-
-    // 🔥 FIXED: Refetch all data
-    await fetchAllData();
-    setSelectedRequest(null);
-    alert("🚫 User blocked successfully. Notification sent via email.");
-  } catch (error) {
-    console.error("Error blocking user:", error);
-    alert("Error blocking user. Please try again.");
-  } finally {
-    setActionLoading(false);
-  }
+const handleBlock = (requestId: number): void => {
+  openModal(requestId, 'block');
 };
 
   // 🔥 FIXED: Filter and search functions now work on current data
@@ -646,6 +684,28 @@ const handleBlock = async (requestId: number): Promise<void> => {
           </div>
         </div>
       )}
+
+      {/* Action Modal */}
+<ActionModal
+  isOpen={modalState.isOpen}
+  onClose={closeModal}
+  onConfirm={handleModalConfirm}
+  isLoading={actionLoading}
+  title={modalState.title}
+  label={modalState.label}
+  placeholder={modalState.placeholder}
+  confirmText={modalState.confirmText}
+  confirmButtonClass={modalState.confirmButtonClass}
+/>
+
+{/* Success/Error Modal */}
+<SuccessModal
+  isOpen={successModal.isOpen}
+  onClose={closeSuccessModal}
+  title={successModal.title}
+  message={successModal.message}
+  type={successModal.type}
+/>
       </main>
     </div>
   );

@@ -5,6 +5,7 @@ import {
   Home, Package, Users, ClipboardCheck, FileText, Wrench, Settings, UserCheck, LogOut, Menu, X
 } from 'lucide-react';
 import './Inventory.css';
+import SuccessModal from '../components/UI/SuccessModal';
 
 interface NavigationItem {
   id: string;
@@ -121,6 +122,34 @@ const Inventory: React.FC = () => {
     notes: ''
   });
   const [newStatus, setNewStatus] = useState('');
+
+  // Success Modal State
+const [successModal, setSuccessModal] = useState({
+  isOpen: false,
+  title: '',
+  message: '',
+  type: 'success' as 'success' | 'error'
+});
+
+//Helper 
+// Success Modal Functions
+const showSuccessModal = (title: string, message: string, type: 'success' | 'error' = 'success') => {
+  setSuccessModal({
+    isOpen: true,
+    title,
+    message,
+    type
+  });
+};
+
+const closeSuccessModal = () => {
+  setSuccessModal({
+    isOpen: false,
+    title: '',
+    message: '',
+    type: 'success'
+  });
+};
   
   // Loading states
   const [loading, setLoading] = useState(true);
@@ -278,7 +307,13 @@ const Inventory: React.FC = () => {
         fetchEquipmentStats()
       ]);
 
-      alert('Equipment added successfully!');
+      // Show success modal
+      setSuccessModal({
+        isOpen: true,
+        title: 'Success',
+        message: 'Equipment added successfully!',
+        type: 'success'
+      });
     } catch (error) {
       console.error('Error adding equipment:', error);
       alert(`Failed to add equipment: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -489,10 +524,10 @@ const Inventory: React.FC = () => {
         fetchEquipmentStats()
       ]);
       
-      alert('Equipment deleted successfully!');
+      showSuccessModal('Success', 'Equipment deleted successfully!');
     } catch (error) {
       console.error('Error deleting equipment:', error);
-      alert('Failed to delete equipment. Please try again.');
+      showSuccessModal('Error', 'Failed to delete equipment. Please try again.', 'error');
     } finally {
       setSubmitting(false);
     }
@@ -522,10 +557,10 @@ const Inventory: React.FC = () => {
         fetchEquipmentStats()
       ]);
       
-      alert('Equipment status updated successfully!');
+      showSuccessModal('Success', 'Equipment status updated successfully!');
     } catch (error) {
       console.error('Error updating status:', error);
-      alert('Failed to update status. Please try again.');
+      showSuccessModal('Error', 'Failed to update status. Please try again.', 'error');
     } finally {
       setSubmitting(false);
     }
@@ -1491,6 +1526,15 @@ const Inventory: React.FC = () => {
             </div>
           </div>
         )}
+
+        {/* Success/Error Modal */}
+<SuccessModal
+  isOpen={successModal.isOpen}
+  onClose={closeSuccessModal}
+  title={successModal.title}
+  message={successModal.message}
+  type={successModal.type}
+/>
       </main>
     </div>
   );

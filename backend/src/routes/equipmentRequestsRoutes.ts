@@ -215,7 +215,7 @@ const createEquipmentRequestsRoutes = () => {
             pr.equipment_name,
             pr.equipment_serial_number as serial_number
           FROM pending_requests pr
-          WHERE pr.user_name = $1
+          WHERE pr.name = $1
           ORDER BY pr.created_at DESC
         `,
           [userName]
