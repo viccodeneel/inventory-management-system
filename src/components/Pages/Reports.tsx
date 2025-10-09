@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  CheckCircle, XCircle, Clock, User, Mail, Phone, Building, MessageSquare, Calendar, Pause, Ban, Filter, Search,
   Home, Package, Users, ClipboardCheck, FileText, Wrench, Settings, UserCheck, LogOut, Menu, X
 } from 'lucide-react';
 import './Reports.css';

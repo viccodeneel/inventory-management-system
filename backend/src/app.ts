@@ -1,6 +1,6 @@
 // index.ts (or app.ts)
-import express from "express";
-import path from "path";
+import * as express from "express";
+import * as path from "path";
 import authRoutes from "./routes/authRoutes.js"; // Adjust path as needed
 
 const app = express();
@@ -19,7 +19,7 @@ app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html")); // Adjust path as needed
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });

@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { 
-  CheckCircle, XCircle, Clock, User, Mail, Phone, Building, MessageSquare, Calendar, Pause, Ban, Filter, Search,
   Home, Package, Users, ClipboardCheck, FileText, Wrench, Settings, UserCheck, LogOut, Menu, X
 } from 'lucide-react';
 import './Inventory.css';
-import SuccessModal from '../components/UI/SuccessModal';
+import SuccessModal from '../UI/SuccessModal';
 
 interface NavigationItem {
   id: string;
@@ -96,6 +95,7 @@ const Inventory: React.FC = () => {
   const [selectedEquipment, setSelectedEquipment] = useState<Equipment | null>(null);
   const [openDropdown, setOpenDropdown] = useState<number | null>(null);
   const [addForm, setAddForm] = useState<AddEquipmentForm>({
+
     name: '',
     model: '',
     brand: '',
@@ -108,6 +108,7 @@ const Inventory: React.FC = () => {
     warranty_expiry: '',
     notes: ''
   });
+
   const [editForm, setEditForm] = useState<AddEquipmentForm>({
     name: '',
     model: '',
@@ -207,10 +208,10 @@ const closeSuccessModal = () => {
     }
   };
 
-  // Fetch categories for dropdown - hardcoded for now
+  // Fetch categories 
   const fetchCategories = async () => {
     try {
-      // Hardcoded categories - replace with your actual categories
+      // Hardcoded categories
       const hardcodedCategories = [
         { id: '1', name: 'Drones' },
         { id: '2', name: 'Cameras' },
@@ -228,10 +229,10 @@ const closeSuccessModal = () => {
     }
   };
 
-  // Fetch locations for dropdown - hardcoded for now
+  // Fetch locations for dropdown 
   const fetchLocations = async () => {
     try {
-      // Hardcoded locations - replace with your actual locations
+      // Hardcoded locations 
       const hardcodedLocations = [
         { id: '1', name: 'Main Warehouse' },
         { id: '2', name: 'Field Office A' },
@@ -264,7 +265,7 @@ const closeSuccessModal = () => {
         location_id: addForm.location_id,
         condition: addForm.condition,
         status: addForm.status,
-        // Optional fields - only include if they have values
+        // Optional fields 
         ...(addForm.purchase_date && { purchase_date: addForm.purchase_date }),
         ...(addForm.warranty_expiry && { warranty_expiry: addForm.warranty_expiry }),
         ...(addForm.notes && { notes: addForm.notes })
@@ -495,10 +496,10 @@ const closeSuccessModal = () => {
         fetchEquipmentStats()
       ]);
       
-      alert('Equipment updated successfully!');
+      showSuccessModal('Success', 'Equipment updated successfully!');
     } catch (error) {
       console.error('Error updating equipment:', error);
-      alert('Failed to update equipment. Please try again.');
+      showSuccessModal('Error', 'Failed to update equipment. Please try again.', 'error');
     } finally {
       setSubmitting(false);
     }

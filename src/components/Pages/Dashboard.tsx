@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from "react-router-dom";
 import { 
-  CheckCircle, XCircle, Clock, User, Mail, Phone, Building, MessageSquare, Calendar, Pause, Ban, Filter,
   Home, Package, Users, ClipboardCheck, FileText, Wrench, Settings, UserCheck, LogOut, Menu, X
 } from 'lucide-react';
 import './Dashboard.css';
@@ -24,7 +23,7 @@ interface Equipment {
   name: string;
   model: string;
   category: string;
-  status: 'available' | 'in_use' | 'maintenance' | 'retired';
+  status: 'available' | 'in_use' | 'maintenance';
   location: string;
   created_at: string;
   updated_at: string;
@@ -47,61 +46,6 @@ interface SystemAlert {
 }
 
 // SVG Icon Components
-const BoxIcon: React.FC = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="#2196F3" strokeWidth="2" className="dashboard-icon">
-    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
-    <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
-    <line x1="12" y1="22.08" x2="12" y2="12"></line>
-  </svg>
-);
-
-const ListIcon: React.FC = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="#4CAF50" strokeWidth="2" className="dashboard-icon">
-    <line x1="8" y1="6" x2="21" y2="6"></line>
-    <line x1="8" y1="12" x2="21" y2="12"></line>
-    <line x1="8" y1="18" x2="21" y2="18"></line>
-    <line x1="3" y1="6" x2="3.01" y2="6"></line>
-    <line x1="3" y1="12" x2="3.01" y2="12"></line>
-    <line x1="3" y1="18" x2="3.01" y2="18"></line>
-  </svg>
-);
-
-const UserIcon: React.FC = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="#FFC107" strokeWidth="2" className="dashboard-icon">
-    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-    <circle cx="12" cy="7" r="4"></circle>
-  </svg>
-);
-
-const MaintenanceIcon: React.FC = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="#FF5722" strokeWidth="2" className="dashboard-icon">
-    <circle cx="12" cy="12" r="10"></circle>
-    <path d="M12 6v6l4 2"></path>
-  </svg>
-);
-
-const AlertIcon: React.FC<DashboardIcon> = ({ color }) => (
-  <svg viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" className="dashboard-small-icon">
-    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
-    <line x1="12" y1="9" x2="12" y2="13"></line>
-    <line x1="12" y1="17" x2="12.01" y2="17"></line>
-  </svg>
-);
-
-const MenuIcon: React.FC = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="dashboard-menu-icon">
-    <line x1="3" y1="12" x2="21" y2="12"></line>
-    <line x1="3" y1="6" x2="21" y2="6"></line>
-    <line x1="3" y1="18" x2="21" y2="18"></line>
-  </svg>
-);
-
-const CloseIcon: React.FC = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="dashboard-menu-icon">
-    <line x1="18" y1="6" x2="6" y2="18"></line>
-    <line x1="6" y1="6" x2="18" y2="18"></line>
-  </svg>
-);
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();

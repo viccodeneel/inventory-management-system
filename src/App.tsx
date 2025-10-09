@@ -1,23 +1,25 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import Login from './Pages/Login';
-import Dashboard from './Pages/Dashboard';
-import Inventory from './Pages/Inventory';
-import Users from './Pages/Users';
-import Check from './Pages/Check';
-import Reports from './Pages/Reports';
-import Maintenance from './Pages/Main';
-import Settings from './Pages/Settings';
-import ForgotPassword from './Pages/forget'; // Import the forget password component
-import Register from './Pages/register';
-import Requests from './Pages/requests';
+import Login from './components/Authentication/Login';
+import ForgotPassword from './components/Authentication/forget';
+import Register from './components/Authentication/register';
 
-import Userdash from './Ppages/Userdash';
-import MyRequest from './Ppages/MyRequest';
-import Equipments from './Ppages/Equipments';
-import Updates from './Ppages/Updates';
-import Psettings from './Ppages/Psettings';
-import EquipmentRequests from './Pages/equipment_requests';
+import Dashboard from './components/Pages/Dashboard';
+import Inventory from './components/Pages/Inventory';
+import Users from './components/Pages/Users';
+import Check from './components/Pages/Check';
+import Reports from './components/Pages/Reports';
+import Maintenance from './components/Pages/Main';
+import Settings from './components/Pages/Settings';
+import Requests from './components/Pages/requests';
+import EquipmentRequests from './components/Pages/equipment_requests';
+
+import Userdash from './components/Ppages/Userdash';
+import MyRequest from './components/Ppages/MyRequest';
+import Equipments from './components/Ppages/Equipments';
+import Updates from './components/Ppages/Updates';
+import Psettings from './components/Ppages/Psettings';
+import Help from './components/Ppages/help';
 
 // Import CSS files
 import './App.css';
@@ -43,6 +45,7 @@ export const App: React.FC = () => {
         <Route path="/equipments" element={<Equipments />} />
         <Route path="/updates" element={<Updates />} />
         <Route path="/psettings" element={<Psettings />} />
+        <Route path="/help" element={<Help />} />
       </Routes>
     </Router>
   );

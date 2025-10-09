@@ -42,11 +42,11 @@ router.get("/list", async (req: Request, res: Response) => {
         e.condition,
         ec.name AS category,
         l.name AS location,
-        ci.username AS assigned_to
+        u.name AS assigned_to
       FROM equipment e
       LEFT JOIN equipment_categories ec ON e.category_id = ec.id
       LEFT JOIN locations l ON e.location_id = l.id
-      LEFT JOIN check_in_out ci ON e.assigned_to = ci.id
+      LEFT JOIN users u ON e.assigned_to = u.id
       ORDER BY e.id DESC;
     `);
 
@@ -101,8 +101,6 @@ router.post("/", async (req: Request, res: Response) => {
   }
 });
 
-// Add these routes to your equipmentRoutes.ts file
-
 // ✅ UPDATE equipment (PUT)
 router.put("/:id", async (req: Request, res: Response) => {
   try {
@@ -125,12 +123,19 @@ router.put("/:id", async (req: Request, res: Response) => {
       return res.status(400).json({ error: "Missing required fields: name, category_id, location_id" });
     }
 
+    // If status is changing to 'available', clear the assigned_to field
+    let assignedTo = undefined;
+    if (status === 'available') {
+      assignedTo = null;
+    }
+
     const result = await pool.query(
       `UPDATE equipment 
        SET name = $1, serial_number = $2, model = $3, brand = $4, 
            category_id = $5, location_id = $6, status = $7, condition = $8,
-           purchase_date = $9, warranty_expiry = $10, notes = $11, updated_at = NOW()
-       WHERE id = $12
+           purchase_date = $9, warranty_expiry = $10, notes = $11, 
+           assigned_to = COALESCE($12, assigned_to), updated_at = NOW()
+       WHERE id = $13
        RETURNING *`,
       [
         name,
@@ -144,6 +149,7 @@ router.put("/:id", async (req: Request, res: Response) => {
         purchase_date || null,
         warranty_expiry || null,
         notes || null,
+        assignedTo,
         id
       ]
     );
@@ -198,13 +204,21 @@ router.patch("/:id/status", async (req: Request, res: Response) => {
       return res.status(400).json({ error: "Invalid status value" });
     }
 
-    const result = await pool.query(
-      `UPDATE equipment 
-       SET status = $1, updated_at = NOW()
-       WHERE id = $2
-       RETURNING *`,
-      [status, id]
-    );
+    // If status is changing to 'available', clear the assigned_to field
+    let query = '';
+    if (status === 'available') {
+      query = `UPDATE equipment 
+               SET status = $1, assigned_to = NULL, updated_at = NOW()
+               WHERE id = $2
+               RETURNING *`;
+    } else {
+      query = `UPDATE equipment 
+               SET status = $1, updated_at = NOW()
+               WHERE id = $2
+               RETURNING *`;
+    }
+
+    const result = await pool.query(query, [status, id]);
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: "Equipment not found" });
@@ -239,13 +253,13 @@ router.get("/:id", async (req: Request, res: Response) => {
         e.location_id,
         ec.name AS category,
         l.name AS location,
-        ci.username AS assigned_to,
+        u.name AS assigned_to,
         e.created_at,
         e.updated_at
       FROM equipment e
       LEFT JOIN equipment_categories ec ON e.category_id = ec.id
       LEFT JOIN locations l ON e.location_id = l.id
-      LEFT JOIN check_in_out ci ON e.assigned_to = ci.id
+      LEFT JOIN users u ON e.assigned_to = u.id
       WHERE e.id = $1
     `, [id]);
 

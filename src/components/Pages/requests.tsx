@@ -6,9 +6,9 @@ import {
   Home, Package, Users, ClipboardCheck, FileText, Wrench, Settings, UserCheck, LogOut, Menu, X
 } from 'lucide-react';
 import './requests.css';
-import './Sidebar.css';
-import ActionModal from '../components/UI/ActionModal';
-import SuccessModal from '../components/UI/SuccessModal';
+import '../UI/Sidebar.css';
+import ActionModal from '../UI/ActionModal';
+import SuccessModal from '../UI/SuccessModal';
 
 interface PendingRequest {
   id: number;

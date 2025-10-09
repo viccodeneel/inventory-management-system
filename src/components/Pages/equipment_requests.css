@@ -85,6 +85,10 @@
   border-left: 5px solid #2ecc71;
 }
 
+.request-purple-tab {
+  border-left: 5px solid #9b59b6;
+}
+
 .request-red-tab {
   border-left: 5px solid #e74c3c;
 }
@@ -793,6 +797,20 @@
   color: #374151;
 }
 
+.request-detaillls {
+  background: #f3f4f6;
+  padding: 15px;
+  border-radius: 8px;
+  margin: 16px 0;
+}
+
+.request-detaills {
+  background: #f3f4f6;
+  padding: 25px;
+  border-radius: 8px;
+  margin: 16px 0;
+}
+
 .request-details {
   background: #f3f4f6;
   padding: 16px;
@@ -1010,4 +1028,11 @@
   opacity: 0.6;
   cursor: not-allowed;
   transform: none;
+}
+.request-gray-tab {
+  background-color: #e2e8f0;
+  color: #2d3748;
+}
+.request-gray-tab:hover {
+  background-color: #cbd5e0;
 }

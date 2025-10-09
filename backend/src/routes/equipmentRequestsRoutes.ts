@@ -19,7 +19,7 @@ interface EquipmentRequest {
   request_date: string;
   expected_return_date: string;
   actual_return_date?: string;
-  status: "pending" | "approved" | "rejected" | "returned";
+  status: "pending" | "approved" | "rejected" | "returned" | "in_use";
   priority?: string;
   purpose?: string;
   notes?: string;
@@ -38,28 +38,11 @@ interface EquipmentRequest {
   updated_at: string;
 }
 
-interface RequestStats {
-  total: number;
-  pending: number;
-  approved: number;
-  rejected: number;
-  returned: number;
-}
-
 interface ApiResponse<T = any> {
   success: boolean;
   data?: T;
   message?: string;
   error?: string;
-}
-
-interface AuthenticatedRequest extends Request {
-  user?: {
-    id: number;
-    email: string;
-    name: string;
-    role: string;
-  };
 }
 
 // ====================
@@ -94,9 +77,38 @@ const handleDatabaseError = (
 // ====================
 const createEquipmentRequestsRoutes = () => {
   // -------------------------
-  // Get all equipment requests (Admin)
+// Get all rejected equipment requests (Admin)
+// -------------------------
+router.get("/admin/rejected-requests", async (req: Request, res: Response) => {
+  try {
+    const result = await pool.query<EquipmentRequest>(`
+      SELECT 
+        rr.*,
+        rr.user_name,
+        rr.equipment_name,
+        rr.equipment_model,
+        rr.equipment_brand,
+        rr.equipment_category,
+        rr.equipment_serial_number,
+        rr.equipment_location,
+        rr.request_id AS id,
+        rr.requested_date AS request_date,
+        rr.rejected_date,
+        rr.rejection_reason,
+        rr.rejected_by
+      FROM rejected_requests rr
+      ORDER BY rr.rejected_date DESC
+    `);
+
+    res.json({ success: true, data: result.rows } as ApiResponse<EquipmentRequest[]>);
+  } catch (error) {
+    return handleDatabaseError(error, res, "fetching rejected requests");
+  }
+});
   // -------------------------
-  router.get("/admin/equipment-requests", async (req: Request, res: Response) => {
+// Get all pending equipment requests (Admin)
+// -------------------------
+router.get("/admin/equipment-requests", async (req: Request, res: Response) => {
     try {
       const result = await pool.query<EquipmentRequest>(`
         SELECT 
@@ -106,9 +118,10 @@ const createEquipmentRequestsRoutes = () => {
           pr.equipment_model,
           pr.equipment_brand,
           pr.equipment_category,
-          pr.equipment_serial_number as serial_number,
+          pr.equipment_serial_number,
           pr.equipment_location
         FROM pending_requests pr
+        WHERE pr.status = 'pending'
         ORDER BY pr.created_at DESC
       `);
 
@@ -119,13 +132,82 @@ const createEquipmentRequestsRoutes = () => {
   });
 
   // -------------------------
-  // Create new equipment request (User)
+// Get all approved equipment requests (Admin)
+// -------------------------
+router.get("/admin/approved-requests", async (req: Request, res: Response) => {
+    try {
+      const result = await pool.query<EquipmentRequest>(`
+        SELECT 
+          ar.*,
+          ar.user_name,
+          ar.equipment_name,
+          ar.equipment_model,
+          ar.equipment_brand,
+          ar.equipment_category,
+          ar.equipment_serial_number,
+          ar.equipment_location
+        FROM approved_requests ar
+        ORDER BY ar.approved_date DESC
+      `);
+
+      res.json({ success: true, data: result.rows } as ApiResponse<EquipmentRequest[]>);
+    } catch (error) {
+      return handleDatabaseError(error, res, "fetching approved requests");
+    }
+  });
   // -------------------------
-  router.post(
-    "/pending-requests",
-    async (req: Request, res: Response) => {
-      try {
-        const {
+// Create new equipment request (User)
+// -------------------------
+router.post("/pending-requests", async (req: Request, res: Response) => {
+    try {
+      const {
+        equipment_id,
+        equipment_name,
+        equipment_model,
+        equipment_brand,
+        equipment_category,
+        equipment_serial_number,
+        equipment_location,
+        request_date,
+        expected_return_date,
+        user_name,
+        status = 'pending',
+        priority = "medium",
+        purpose,
+        notes,
+      } = req.body;
+
+      if (!equipment_id || !expected_return_date || !user_name) {
+        return res.status(400).json({
+          success: false,
+          message: "Equipment ID, expected return date, and user name are required",
+        } as ApiResponse);
+      }
+
+      // Check equipment availability
+      const equipment = await pool.query(
+        `SELECT * FROM equipment WHERE id = $1 AND status = 'available'`,
+        [equipment_id]
+      );
+
+      if (equipment.rowCount === 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Equipment not found or not available",
+        } as ApiResponse);
+      }
+
+      // Insert request into pending_requests table
+      const result = await pool.query(
+        `
+        INSERT INTO pending_requests (
+          equipment_id, equipment_name, equipment_model, equipment_brand, 
+          equipment_category, equipment_serial_number, equipment_location,
+          user_name, request_date, expected_return_date, status, notes
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+        RETURNING *
+      `,
+        [
           equipment_id,
           equipment_name,
           equipment_model,
@@ -133,76 +215,28 @@ const createEquipmentRequestsRoutes = () => {
           equipment_category,
           equipment_serial_number,
           equipment_location,
-          request_date,
-          expected_return_date,
           user_name,
-          status = 'pending',
-          priority = "medium",
-          purpose,
-          notes,
-        } = req.body;
+          request_date || new Date().toISOString(),
+          expected_return_date,
+          status,
+          notes
+        ]
+      );
 
-        if (!equipment_id || !expected_return_date || !user_name) {
-          return res.status(400).json({
-            success: false,
-            message: "Equipment ID, expected return date, and user name are required",
-          } as ApiResponse);
-        }
-
-        // Check equipment availability
-        const equipment = await pool.query(
-          `SELECT * FROM equipment WHERE id = $1 AND status = 'available'`,
-          [equipment_id]
-        );
-
-        if (equipment.rowCount === 0) {
-          return res.status(400).json({
-            success: false,
-            message: "Equipment not found or not available",
-          } as ApiResponse);
-        }
-
-        // Insert request into pending_requests table
-        const result = await pool.query(
-          `
-          INSERT INTO pending_requests (
-            equipment_id, equipment_name, equipment_model, equipment_brand, 
-            equipment_category, equipment_serial_number, equipment_location,
-            user_name, request_date, expected_return_date, status, notes
-          ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
-          RETURNING *
-        `,
-          [
-            equipment_id,
-            equipment_name,
-            equipment_model,
-            equipment_brand,
-            equipment_category,
-            equipment_serial_number,
-            equipment_location,
-            user_name,
-            request_date || new Date().toISOString(),
-            expected_return_date,
-            status,
-            notes
-          ]
-        );
-
-        res.status(201).json({
-          success: true,
-          message: "Equipment request submitted successfully",
-          data: result.rows[0],
-        } as ApiResponse);
-      } catch (error) {
-        return handleDatabaseError(error, res, "creating equipment request");
-      }
+      res.status(201).json({
+        success: true,
+        message: "Equipment request submitted successfully",
+        data: result.rows[0],
+      } as ApiResponse);
+    } catch (error) {
+      return handleDatabaseError(error, res, "creating equipment request");
     }
-  );
+  });
 
   // -------------------------
-  // Get equipment requests by user
-  // -------------------------
-  router.get(
+// Get equipment requests by user
+// -------------------------
+router.get(
     "/equipment-requests/user/:userName",
     async (req: Request, res: Response) => {
       try {
@@ -213,9 +247,9 @@ const createEquipmentRequestsRoutes = () => {
           SELECT 
             pr.*,
             pr.equipment_name,
-            pr.equipment_serial_number as serial_number
+            pr.equipment_serial_number
           FROM pending_requests pr
-          WHERE pr.name = $1
+          WHERE pr.user_name = $1
           ORDER BY pr.created_at DESC
         `,
           [userName]
@@ -229,9 +263,9 @@ const createEquipmentRequestsRoutes = () => {
   );
 
   // -------------------------
-  // Approve equipment request (Admin)
-  // -------------------------
-  router.put(
+// Approve equipment request (Admin)
+// -------------------------
+router.put(
     "/admin/equipment-requests/:id/approve",
     async (req: Request, res: Response) => {
       try {
@@ -258,38 +292,88 @@ const createEquipmentRequestsRoutes = () => {
           } as ApiResponse);
         }
 
-        // Update the request status to approved
-        await pool.query(
-          `
-          UPDATE pending_requests
-          SET status = 'approved',
-              approval_code = $1,
-              approved_date = NOW(),
-              approved_by = $2,
-              approval_notes = $3,
-              updated_at = NOW()
-          WHERE id = $4
-        `,
-          [finalApprovalCode, approved_by, approval_notes, id]
-        );
+        const request = existing.rows[0];
 
-        // Update equipment status to checked_out
-        await pool.query(
-          `UPDATE equipment SET status = 'checked_out' WHERE id = $1`,
-          [existing.rows[0].equipment_id]
-        );
+        // Start a transaction
+        await pool.query('BEGIN');
 
-        // Get the updated request
-        const updated = await pool.query<EquipmentRequest>(
-          `SELECT * FROM pending_requests WHERE id = $1`,
-          [id]
-        );
+        try {
+          // Insert into approved_requests table with status 'approved'
+          const approvedResult = await pool.query(
+            `
+            INSERT INTO approved_requests (
+              id,
+              equipment_id,
+              equipment_name,
+              equipment_model,
+              equipment_brand,
+              equipment_category,
+              equipment_serial_number,
+              equipment_location,
+              user_id,
+              user_name,
+              request_date,
+              approved_date,
+              expected_return_date,
+              approval_code,
+              notes,
+              status,
+              created_at,
+              updated_at
+            )
+            VALUES (
+              $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+              $11, NOW(), $12, $13, $14, 'approved', $15, NOW()
+            )
+            RETURNING *
+            `,
+            [
+              request.id,
+              request.equipment_id,
+              request.equipment_name,
+              request.equipment_model,
+              request.equipment_brand,
+              request.equipment_category,
+              request.equipment_serial_number,
+              request.equipment_location,
+              request.user_id,
+              request.user_name,
+              request.request_date,
+              request.expected_return_date,
+              finalApprovalCode,
+              approval_notes || request.notes,
+              request.created_at
+            ]
+          );
 
-        res.json({
-          success: true,
-          message: "Request approved successfully",
-          data: updated.rows[0],
-        } as ApiResponse<EquipmentRequest>);
+          // Delete from pending_requests
+          await pool.query(
+            `DELETE FROM pending_requests WHERE id = $1`,
+            [id]
+          );
+
+          // Update equipment status to in_use AND assign to user
+          await pool.query(
+            `UPDATE equipment 
+             SET status = 'in_use', assigned_to = $1, updated_at = NOW() 
+             WHERE id = $2`,
+            [request.user_id, request.equipment_id]
+          );
+
+          // Commit transaction
+          await pool.query('COMMIT');
+
+          res.json({
+            success: true,
+            message: "Request approved successfully",
+            data: approvedResult.rows[0],
+          } as ApiResponse<EquipmentRequest>);
+        } catch (error) {
+          // Rollback on error
+          await pool.query('ROLLBACK');
+          console.error('Approval transaction error:', error);
+          throw error;
+        }
       } catch (error) {
         return handleDatabaseError(error, res, "approving equipment request");
       }
@@ -297,77 +381,124 @@ const createEquipmentRequestsRoutes = () => {
   );
 
   // -------------------------
-  // Reject equipment request (Admin)
-  // -------------------------
-  router.put(
-    "/admin/equipment-requests/:id/reject",
-    async (req: Request, res: Response) => {
-      try {
-        const { id } = req.params;
-        const { rejection_reason, rejected_by } = req.body;
+// Reject equipment request (Admin)
+// -------------------------
+router.put(
+  "/admin/equipment-requests/:id/reject",
+  async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { rejection_reason, rejected_by } = req.body;
 
-        if (!rejection_reason || !rejected_by) {
-          return res.status(400).json({
-            success: false,
-            message: "Rejection reason and rejected by are required",
-          } as ApiResponse);
-        }
-
-        const existing = await pool.query<EquipmentRequest>(
-          `SELECT * FROM pending_requests WHERE id = $1 AND status = 'pending'`,
-          [id]
-        );
-
-        if (existing.rowCount === 0) {
-          return res.status(404).json({
-            success: false,
-            message: "Request not found or not in pending status",
-          } as ApiResponse);
-        }
-
-        // Update the request status to rejected
-        await pool.query(
-          `
-          UPDATE pending_requests
-          SET status = 'rejected',
-              rejection_reason = $1,
-              rejected_date = NOW(),
-              rejected_by = $2,
-              updated_at = NOW()
-          WHERE id = $3
-        `,
-          [rejection_reason, rejected_by, id]
-        );
-
-        // Get the updated request
-        const updated = await pool.query<EquipmentRequest>(
-          `SELECT * FROM pending_requests WHERE id = $1`,
-          [id]
-        );
-
-        res.json({
-          success: true,
-          message: "Request rejected successfully",
-          data: updated.rows[0],
-        } as ApiResponse<EquipmentRequest>);
-      } catch (error) {
-        return handleDatabaseError(error, res, "rejecting equipment request");
+      if (!rejection_reason || !rejected_by) {
+        return res.status(400).json({
+          success: false,
+          message: "Rejection reason and rejected by fields are required",
+        } as ApiResponse);
       }
-    }
-  );
 
+      const existing = await pool.query<EquipmentRequest>(
+        `SELECT * FROM pending_requests WHERE id = $1 AND status = 'pending'`,
+        [id]
+      );
+
+      if (existing.rowCount === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Request not found or not in pending status",
+        } as ApiResponse);
+      }
+
+      const pendingRequest = existing.rows[0];
+
+      // Start transaction
+      await pool.query('BEGIN');
+
+      try {
+        // Delete from pending_requests instead of updating status
+const result = await pool.query(
+  `
+  DELETE FROM pending_requests 
+  WHERE id = $1
+  RETURNING *
+`,
+  [id]
+);
+
+const rejectedRequest = result.rows[0];
+
+// Insert into rejected_requests table with full equipment details
+await pool.query(
+  `
+  INSERT INTO rejected_requests (
+    request_id,
+    equipment_id,
+    equipment_name,
+    equipment_model,
+    equipment_brand,
+    equipment_category,
+    equipment_serial_number,
+    equipment_location,
+    user_id,
+    user_name,
+    requested_date,
+    rejection_reason,
+    rejected_by,
+    rejected_date,
+    created_at
+  ) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8,
+    $9, $10, $11, $12, $13, $14, NOW()
+  )
+  `,
+  [
+    rejectedRequest.id,
+    rejectedRequest.equipment_id,
+    rejectedRequest.equipment_name,
+    rejectedRequest.equipment_model,
+    rejectedRequest.equipment_brand,
+    rejectedRequest.equipment_category,
+    rejectedRequest.equipment_serial_number,
+    rejectedRequest.equipment_location,
+    rejectedRequest.user_id,
+    rejectedRequest.user_name,
+    rejectedRequest.request_date,
+    rejection_reason,
+    rejected_by,
+            new Date().toISOString() // rejected_date
+  ]
+);
+
+// Commit transaction
+await pool.query('COMMIT');
+
+res.json({
+  success: true,
+  message: "Request rejected successfully",
+  data: rejectedRequest,
+} as ApiResponse<EquipmentRequest>);
+      } catch (error) {
+        // Rollback on error
+        await pool.query('ROLLBACK');
+        console.error('Rejection transaction error:', error);
+        throw error;
+      }
+    } catch (error) {
+      return handleDatabaseError(error, res, "rejecting equipment request");
+    }
+  }
+);
   // -------------------------
-  // Mark equipment as returned (Admin)
-  // -------------------------
-  router.put(
-    "/admin/equipment-requests/:id/return",
+// Mark equipment as picked up (Admin) - Changes status from approved to in_use
+// -------------------------
+router.put(
+    "/admin/equipment-requests/:id/pickup",
     async (req: Request, res: Response) => {
       try {
         const { id } = req.params;
-        const { return_condition, return_notes } = req.body;
 
         const existing = await pool.query<EquipmentRequest>(
-          `SELECT * FROM pending_requests WHERE id = $1 AND status = 'approved'`,
+          `SELECT * FROM approved_requests WHERE id = $1 AND status = 'approved'`,
           [id]
         );
 
@@ -378,67 +509,138 @@ const createEquipmentRequestsRoutes = () => {
           } as ApiResponse);
         }
 
-        // Update the request status to returned
-        await pool.query(
+        const request = existing.rows[0];
+
+        // Update status to in_use
+        const result = await pool.query(
           `
-          UPDATE pending_requests
-          SET status = 'returned',
-              actual_return_date = NOW(),
-              return_condition = $1,
-              return_notes = $2,
+          UPDATE approved_requests 
+          SET status = 'in_use',
               updated_at = NOW()
-          WHERE id = $3
+          WHERE id = $1
+          RETURNING *
         `,
-          [return_condition, return_notes, id]
+          [id]
         );
 
-        // Update equipment status based on return condition
-        const equipmentStatus =
-          return_condition === "damaged" ? "maintenance" : "available";
-        await pool.query(`UPDATE equipment SET status = $1 WHERE id = $2`, [
-          equipmentStatus,
-          existing.rows[0].equipment_id,
-        ]);
-
-        // Get the updated request
-        const updated = await pool.query<EquipmentRequest>(
-          `SELECT * FROM pending_requests WHERE id = $1`,
-          [id]
+        // Update equipment status to in_use
+        await pool.query(
+          `UPDATE equipment SET status = 'in_use' WHERE id = $1`,
+          [request.equipment_id]
         );
 
         res.json({
           success: true,
-          message: "Equipment returned successfully",
-          data: updated.rows[0],
+          message: "Equipment marked as picked up successfully",
+          data: result.rows[0],
         } as ApiResponse<EquipmentRequest>);
       } catch (error) {
-        return handleDatabaseError(error, res, "marking equipment as returned");
+        return handleDatabaseError(error, res, "marking equipment as picked up");
       }
     }
   );
 
   // -------------------------
-  // Get equipment request statistics (Admin)
-  // -------------------------
-  router.get("/admin/equipment-requests/stats", async (req: Request, res: Response) => {
-    try {
-      const stats = await pool.query<RequestStats>(
-        `
-        SELECT 
-          COUNT(*)::int as total,
-          SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END)::int as pending,
-          SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END)::int as approved,
-          SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END)::int as rejected,
-          SUM(CASE WHEN status = 'returned' THEN 1 ELSE 0 END)::int as returned
-        FROM pending_requests
-      `
-      );
+// Mark equipment as returned (Admin)
+// -------------------------
+router.put(
+    "/admin/equipment-requests/:id/return",
+    async (req: Request, res: Response) => {
+      try {
+        const { id } = req.params;
+        const { return_condition, return_notes } = req.body;
 
-      res.json({ success: true, data: stats.rows[0] } as ApiResponse<RequestStats>);
-    } catch (error) {
-      return handleDatabaseError(error, res, "fetching request statistics");
+        const existing = await pool.query<EquipmentRequest>(
+          `SELECT * FROM approved_requests WHERE id = $1 AND status = 'in_use'`,
+          [id]
+        );
+
+        if (existing.rowCount === 0) {
+          return res.status(404).json({
+            success: false,
+            message: "Request not found or not in 'in use' status",
+          } as ApiResponse);
+        }
+
+        const request = existing.rows[0];
+
+        // Start a transaction
+        await pool.query('BEGIN');
+
+        try {
+          // Update the approved request status to returned
+         // Update the approved request status to returned and insert into returned_equipments
+const result = await pool.query(
+  `
+  UPDATE approved_requests 
+  SET status = 'returned',
+      actual_return_date = NOW(),
+      return_condition = $1,
+      return_notes = $2,
+      updated_at = NOW()
+  WHERE id = $3
+  RETURNING *
+`,
+  [return_condition || 'good', return_notes, id]
+);
+
+const returnedRequest = result.rows[0];
+
+// Insert into returned_equipments table
+await pool.query(
+  `
+  INSERT INTO returned_equipments (
+    request_id,
+    equipment_id,
+    user_id,
+    borrowed_date,
+    expected_return_date,
+    actual_return_date,
+    return_condition,
+    return_notes,
+    created_at
+  ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+  `,
+  [
+    returnedRequest.id,
+    returnedRequest.equipment_id,
+    returnedRequest.user_id,
+    returnedRequest.approved_date || returnedRequest.created_at,
+    returnedRequest.expected_return_date,
+    returnedRequest.actual_return_date,
+    return_condition || 'good',
+    return_notes
+  ]
+);
+
+// Optionally delete from approved_requests (if you want to move, not copy)
+// await pool.query('DELETE FROM approved_requests WHERE id = $1', [id]);
+
+// Update equipment status back to available
+await pool.query(
+  `UPDATE equipment SET status = 'available' WHERE id = $1`,
+  [returnedRequest.equipment_id]
+);
+
+// Commit transaction
+await pool.query('COMMIT');
+
+res.json({
+  success: true,
+  message: "Equipment marked as returned successfully",
+  data: returnedRequest,
+} as ApiResponse<EquipmentRequest>);
+        } catch (error) {
+          // Rollback on error
+          await pool.query('ROLLBACK');
+          console.error('Return transaction error:', error);
+          throw error;
+        }
+      } catch (error) {
+        return handleDatabaseError(error, res, "marking equipment as returned");
+      }
     }
-  });
+  );
 
   return router;
 };

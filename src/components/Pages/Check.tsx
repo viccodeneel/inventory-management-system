@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { 
-  CheckCircle, XCircle, Clock, User, Mail, Phone, Building, MessageSquare, Calendar, Pause, Ban, Filter, Search,
   Home, Package, Users, ClipboardCheck, FileText, Wrench, Settings, UserCheck, LogOut, Menu, X
 } from 'lucide-react';
 import './Check.css';
@@ -16,7 +15,6 @@ interface NavigationItem {
 
 const Check = () => {
   const navigate = useNavigate();
-  const location = useLocation();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
     const [activeNavItem, setActiveNavItem] = useState('check');
@@ -137,11 +135,6 @@ const Check = () => {
     navigate("/");  // ✅ redirect to login page after logout
   }, 1500);
 };
-
-  // Check if current location matches a specific path
-  const isActive = (path: string): boolean => {
-    return location.pathname === path;
-  };
 
   return (
     <div className="dashboard-containerr">

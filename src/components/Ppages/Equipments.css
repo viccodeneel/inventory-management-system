@@ -327,6 +327,11 @@
 .inventory-red-tab::before {
   background: linear-gradient(135deg, #ef4444, #dc2626);
 }
+.inventory-purple-tab::before {
+  background: linear-gradient(135deg, #8b5cf6, #6b46c1);
+}
+
+
 
 .inventory-stat-content {
   flex: 1;
@@ -375,6 +380,11 @@
 .inventory-red-tab .inventory-stat-icon {
   background: rgba(239, 68, 68, 0.1);
   color: #ef4444;
+}
+
+.inventory-purple-tab .inventory-stat-icon {
+  background: rgba(139, 92, 246, 0.1);
+  color: #8b5cf6;
 }
 
 /* Enhanced Table Styling */
@@ -487,7 +497,7 @@
 
 /* Modal Header */
 .modal-header {
-  background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+  background: slategray;
   color: white;
   padding: 24px 30px;
   display: flex;
@@ -524,7 +534,6 @@
   color: white;
   width: 36px;
   height: 36px;
-  border-radius: 50%;
   font-size: 20px;
   font-weight: bold;
   cursor: pointer;

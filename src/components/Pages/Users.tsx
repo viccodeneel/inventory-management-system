@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  CheckCircle, XCircle, Clock, User, Mail, Phone, Building, MessageSquare, Calendar, Pause, Ban, Filter, Search,
-  Home, Package, Users as UsersIcon, ClipboardCheck, FileText, Wrench, Settings, UserCheck, LogOut, Menu, X
+import {
+  Home, Package, Users as ClipboardCheck, FileText, Wrench, Settings, UserCheck, LogOut, Menu, X
 } from 'lucide-react';
 import './Users.css';
 

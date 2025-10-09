@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  CheckCircle, XCircle, Clock, User, Mail, Phone, Building, MessageSquare, Calendar, Pause, Ban, Filter, Search,
-  Home, Package, Users, ClipboardCheck, FileText, Wrench, Settings as SettingsIcon2, UserCheck, LogOut, Menu, X
+  Home, Package, Users, ClipboardCheck, FileText, Wrench, Settings as UserCheck, LogOut, Menu, X
 } from 'lucide-react';
 import './Settings.css';
 

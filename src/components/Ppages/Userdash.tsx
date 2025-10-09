@@ -36,7 +36,7 @@ const Pages2 = () => {
   const [selectedCategory, setSelectedCategory] = useState('All Categories');
   
   // State for active tab (Dashboard or My Requests)
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeTab,] = useState('dashboard');
   
   // State for logout
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -489,7 +489,7 @@ const formatRole = (role: string): string => {
       {currentUser ? currentUser.name : 'Loading...'}
     </div>
     <div className="profile-position">
-      {currentUser ? currentUser.name : 'Loading...'}
+        {currentUser ? formatRole(currentUser.role) : '...'}
     </div>
   </div>
 </div>

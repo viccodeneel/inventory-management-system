@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './Equipments.css';
-import SuccessModal from '../components/UI/SuccessModal';
+import SuccessModal from '../UI/SuccessModal';
 
 interface Equipment {
   id: number;
@@ -458,8 +458,8 @@ const formatRole = (role: string): string => {
         <div className="modal-overlay" onClick={closeRequestModal}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h2>🔍 Request Equipment</h2>
-              <button className="modal-close" onClick={closeRequestModal}>×</button>
+              <h2>Request Equipment</h2>
+              <button className="modal-close" onClick={closeRequestModal}>✕</button>
             </div>
             
             <div className="modal-body">
@@ -688,6 +688,7 @@ const formatRole = (role: string): string => {
                 <div className="inventory-stat-title">MAINTENANCE</div>
                 <div className="inventory-stat-value">{equipmentStats.maintenance}</div>
               </div>
+
               <div className="inventory-stat-icon">
                 <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" fill="none">
                   <circle cx="12" cy="12" r="10"></circle>

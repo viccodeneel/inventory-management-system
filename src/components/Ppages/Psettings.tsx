@@ -37,7 +37,7 @@ const ProfileSettings = () => {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   
   // State for active tab
-  const [activeTab, setActiveTab] = useState('settings');
+  const [activeTab,] = useState('settings');
   const [loading, setLoading] = useState(true);
   
   // Initialize navigate from react-router-dom
