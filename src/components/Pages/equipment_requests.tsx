@@ -4,6 +4,7 @@ import {
   Home, Package, Users, ClipboardCheck, FileText, Wrench, Settings, UserCheck, LogOut, Menu, X
 } from 'lucide-react';
 import './equipment_requests.css';
+import { showConfirmationModal } from '../UI/ModalService';
 
 interface NavigationItem {
   id: string;
@@ -125,23 +126,24 @@ const EquipmentRequests = () => {
     { id: 'equipment_requests', label: 'Equipment Requests', icon: ClipboardCheck, emoji: '📋', path: '/equipment_requests' },
   ];
 
-  // Success Modal State
-  const [successModal, setSuccessModal] = useState({
-    isOpen: false,
-    title: '',
-    message: '',
-    type: 'success' as 'success' | 'error'
-  });
+    // Success Modal State
+const [successModal, setSuccessModal] = useState({
+  isOpen: false,
+  title: '',
+  message: '',
+  type: 'success' as 'success' | 'error'
+});
 
-  // Success Modal Functions
-  const showSuccessModal = (title: string, message: string, type: 'success' | 'error' = 'success') => {
-    setSuccessModal({
-      isOpen: true,
-      title,
-      message,
-      type
-    });
-  };
+//Helper 
+// Success Modal Functions
+const showSuccessModal = (title: string, message: string, type: 'success' | 'error' = 'success') => {
+  setSuccessModal({
+    isOpen: true,
+    title,
+    message,
+    type
+  });
+};
 
   // Fetch pending requests from API
   const fetchPendingRequests = async () => {
@@ -460,9 +462,11 @@ const EquipmentRequests = () => {
 
   // Handle pickup (mark as in use)
   const handlePickup = async (request: EquipmentRequest) => {
-    if (!window.confirm('Confirm that the user has picked up this equipment?')) {
-      return;
-    }
+    const confirmed = await showConfirmationModal(
+      'Mark as Picked Up',
+      'Are you sure you want to mark this equipment as picked up?'
+    );
+    if (!confirmed) return;
     
     setSubmitting(true);
     setError('');
@@ -1029,7 +1033,7 @@ const EquipmentRequests = () => {
                                   disabled={submitting}
                                   title="Mark as picked up"
                                 >
-                                  📦 Mark Picked
+                                  📦 
                                 </button>
                               </div>
                             </td>
@@ -1262,6 +1266,8 @@ const EquipmentRequests = () => {
               </button>
             </div>
           </div>
+
+     
         </div>
       )}
     </div>

@@ -235,3 +235,262 @@
       min-width: 900px;
     }
   }
+
+
+
+
+
+  /* Modal Overlay */
+.ddmodal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+}
+
+/* Details Modal */
+.ddetails-modal {
+  background: white;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 700px;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  animation: modalSlideIn 0.3s ease-out;
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Modal Header */
+.ddmodal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24px 28px;
+  border-bottom: 1px solid #e5e7eb;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 12px 12px 0 0;
+}
+
+.ddmodal-header h2 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.cclose-ddmodal-btn {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: white;
+  font-size: 24px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.cclose-ddmodal-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: rotate(90deg);
+}
+
+/* Modal Content */
+.ddmodal-content {
+  padding: 28px;
+}
+
+.ddetail-section {
+  margin-bottom: 28px;
+}
+
+.ddetail-section:last-child {
+  margin-bottom: 0;
+}
+
+.ddetail-section h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.ddetail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 16px;
+}
+
+.ddetail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ddetail-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.ddetail-value {
+  font-size: 15px;
+  font-weight: 500;
+  color: #1f2937;
+}
+
+.ddetail-notes,
+.dddetail-rejection,
+.detail-approval-code {
+  background: #f9fafb;
+  padding: 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #4b5563;
+  line-height: 1.6;
+  border-left: 4px solid #667eea;
+}
+
+.ddetail-rejection {
+  border-left-color: #ef4444;
+  background: #fef2f2;
+}
+
+.ddetail-approval-code {
+  border-left-color: #10b981;
+  background: #f0fdf4;
+  font-family: 'Courier New', monospace;
+  font-weight: 600;
+  font-size: 16px;
+  letter-spacing: 1px;
+}
+
+/* Modal Footer */
+.ddmodal-footer {
+  padding: 20px 28px;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: flex-end;
+  background: #f9fafb;
+  border-radius: 0 0 12px 12px;
+}
+
+/* New Button Styles */
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ddbtn-view,
+.ddbtn-cancel,
+.ddbtn-request-again,
+.ddbtn-close {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.btn-view {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.btn-view:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.btn-cancel {
+  background:  red;
+  color: white;
+}
+
+.btn-cancel:hover { 
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+}
+
+.btn-request-again {  
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+}
+
+.btn-request-again:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+}
+
+.btn-close {
+  background: #6b7280;
+  color: white;
+  padding: 10px 24px;
+}
+
+.btn-close:hover {
+  background: #4b5563;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .ddetails-modal {
+    width: 95%;
+    max-height: 90vh;
+  }
+
+  .ddmodal-header {
+    padding: 20px;
+  }
+
+  .ddmodal-header h2 {
+    font-size: 20px;
+  }
+
+  .ddmodal-content {
+    padding: 20px;
+  }
+
+  .ddetail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .action-buttons {
+    flex-direction: column;
+  }
+
+  .ddbtn-view,
+  .ddbtn-cancel,
+  .ddbtn-request-again {
+    width: 100%;
+  }
+}

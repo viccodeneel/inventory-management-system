@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './MyRequest.css';
+import SuccessModal from '../UI/SuccessModal';
+import { showConfirmationModal } from '../UI/ModalService';
 
 interface EquipmentRequest {
   id: number;
@@ -9,9 +11,9 @@ interface EquipmentRequest {
   equipment_category: string;
   request_date: string;
   expected_return_date: string;
-  status: 'pending' | 'approved' | 'in_use' | 'rejected' | 'completed' | 'canceled';
+  status: 'pending' | 'approved' | 'in_use' | 'rejected' | 'returned' | 'canceled';
   notes?: string;
-  approval_notes?: string;
+  approval_code?: string;
   rejection_reason?: string;
   return_notes?: string;
 }
@@ -24,130 +26,187 @@ const MyRequests = () => {
   const [activeTab, setActiveTab] = useState<'current' | 'history'>('current');
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [selectedRequest, setSelectedRequest] = useState<EquipmentRequest | null>(null);
 
-  //Profile states
+  // Profile states
   const [currentUser, setCurrentUser] = useState<{
-  name: string;
-  email: string;
-  role: string;
-} | null>(null);
+    name: string;
+    email: string;
+    role: string;
+  } | null>(null);
 
-//Profile Funcetions
-const fetchCurrentUser = async () => {
-  try {
-    const token = localStorage.getItem('userToken');
-    
-    console.log('📍 fetchCurrentUser - Token:', !!token);
-    
-    if (!token) {
-      console.error('No token in fetchCurrentUser');
-      navigate('/');
-      return;
-    }
+  // Data states
+  const [currentRequests, setCurrentRequests] = useState<EquipmentRequest[]>([]);
+  const [requestHistory, setRequestHistory] = useState<EquipmentRequest[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
 
+  // Profile Functions
+  const fetchCurrentUser = async () => {
     try {
-      // Split and decode the JWT
-      const parts = token.split('.');
-      console.log('Token parts:', parts.length);
+      const token = localStorage.getItem('userToken');
       
-      if (parts.length !== 3) {
-        throw new Error('Invalid token format');
+      if (!token) {
+        console.error('No token found');
+        navigate('/');
+        return null;
       }
-      
-      const payload = JSON.parse(atob(parts[1]));
-      console.log('✅ Decoded payload:', payload);
-      
-      setCurrentUser({
-        name: payload.name,
-        email: payload.email,
-        role: payload.role
-      });
-      
-      console.log('✅ Current user set:', payload.name);
-      
-    } catch (decodeError) {
-      console.error('❌ Token decode error:', decodeError);
-      localStorage.clear();
-      navigate('/');
-    }
-    
-  } catch (error) {
-    console.error('❌ Error in fetchCurrentUser:', error);
-    navigate('/');
-  }
-};
 
-// Update your useEffect to include fetchCurrentUser
-useEffect(() => {
-  const initializeData = async () => {
-    setLoading(true);
-    try {
-      await Promise.all([
-        fetchCurrentUser(), // Add this line
-      ]);
+      try {
+        const parts = token.split('.');
+        if (parts.length !== 3) {
+          throw new Error('Invalid token format');
+        }
+        
+        const payload = JSON.parse(atob(parts[1]));
+        const user = {
+          name: payload.name,
+          email: payload.email,
+          role: payload.role
+        };
+        
+        setCurrentUser(user);
+        console.log('Current user set:', user.name);
+        return user;
+      } catch (decodeError) {
+        console.error('Token decode error:', decodeError);
+        localStorage.clear();
+        navigate('/');
+        return null;
+      }
     } catch (error) {
-      console.error('Error initializing data:', error);
-    } finally {
-      setLoading(false);
+      console.error('Error in fetchCurrentUser:', error);
+      navigate('/');
+      return null;
     }
   };
 
-  initializeData();
-}, []);
+  
+   // Success Modal State
+const [successModal, setSuccessModal] = useState({
+  isOpen: false,
+  title: '',
+  message: '',
+  type: 'success' as 'success' | 'error'
+});
 
-// Helper function to get initials from name
-const getInitials = (name: string): string => {
-  return name
-    .split(' ')
-    .map(word => word.charAt(0))
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
+//Helper 
+// Success Modal Functions
+const showSuccessModal = (title: string, message: string, type: 'success' | 'error' = 'success') => {
+  setSuccessModal({
+    isOpen: true,
+    title,
+    message,
+    type
+  });
 };
 
-// Helper function to format role for display
-const formatRole = (role: string): string => {
-  const roleMap: { [key: string]: string } = {
-    'admin': 'Administrator',
-    'personnel': 'Personnel',
-    'user': 'Team Member'
+
+const closeSuccessModal = () => {
+  setSuccessModal({
+    isOpen: false,
+    title: '',
+    message: '',
+    type: 'success'
+  });
+};
+
+  // Fetch user requests from backend
+  const fetchUserRequests = async (userName: string) => {
+    try {
+      const API_BASE_URL = 'http://localhost:5000/api';
+      
+      // Fetch pending requests
+      const pendingResponse = await fetch(`${API_BASE_URL}/equipment-requests/user/${encodeURIComponent(userName)}/pending`);
+      if (!pendingResponse.ok) throw new Error('Failed to fetch pending requests');
+      const pendingData = await pendingResponse.json();
+      
+      // Fetch approved requests (includes approved and in_use)
+      const approvedResponse = await fetch(`${API_BASE_URL}/equipment-requests/user/${encodeURIComponent(userName)}/approved`);
+      if (!approvedResponse.ok) throw new Error('Failed to fetch approved requests');
+      const approvedData = await approvedResponse.json();
+      
+      // Fetch rejected requests
+      const rejectedResponse = await fetch(`${API_BASE_URL}/equipment-requests/user/${encodeURIComponent(userName)}/rejected`);
+      if (!rejectedResponse.ok) throw new Error('Failed to fetch rejected requests');
+      const rejectedData = await rejectedResponse.json();
+      
+      // Fetch returned requests (completed)
+      const returnedResponse = await fetch(`${API_BASE_URL}/equipment-requests/user/${encodeURIComponent(userName)}/returned`);
+      if (!returnedResponse.ok) throw new Error('Failed to fetch returned requests');
+      const returnedData = await returnedResponse.json();
+      
+      // Combine pending and approved for current requests
+      setCurrentRequests([
+        ...(pendingData.data || []),
+        ...(approvedData.data || [])
+      ].map(req => ({
+        ...req,
+        status: req.status === 'returned' ? 'completed' : req.status
+      })));
+      
+      // Combine rejected and returned for history
+      setRequestHistory([
+        ...(rejectedData.data || []),
+        ...(returnedData.data || [])
+      ].map(req => ({
+        ...req,
+        status: req.status === 'returned' ? 'completed' : req.status
+      })));
+      
+      // Collect unique categories
+      const allRequests = [
+        ...(pendingData.data || []),
+        ...(approvedData.data || []),
+        ...(rejectedData.data || []),
+        ...(returnedData.data || [])
+      ];
+      const uniqueCategories = [...new Set(allRequests.map(req => req.equipment_category).filter(Boolean))];
+      setCategories(uniqueCategories);
+      
+    } catch (error) {
+      console.error('Error fetching requests:', error);
+    }
   };
-  return roleMap[role.toLowerCase()] || 'Team Member';
-};
 
-  // API INTEGRATION POINT: Replace empty arrays with actual data from API
-  const currentRequests: EquipmentRequest[] = [];
-  const requestHistory: EquipmentRequest[] = [];
-  const categories: string[] = [];
+  // Initialize data
+  useEffect(() => {
+    const initializeData = async () => {
+      setLoading(true);
+      try {
+        const user = await fetchCurrentUser();
+        if (user) {
+          await fetchUserRequests(user.name);
+        }
+      } catch (error) {
+        console.error('Error initializing data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  // API INTEGRATION POINT: Fetch user requests from backend
-  // const fetchUserRequests = async () => {
-  //   try {
-  //     const API_BASE_URL = 'http://localhost:5000/api';
-  //     
-  //     // Fetch pending requests
-  //     const pendingResponse = await fetch(`${API_BASE_URL}/equipment-requests/user/${encodeURIComponent(userName)}/pending`);
-  //     const pendingData = await pendingResponse.json();
-  //     
-  //     // Fetch approved requests
-  //     const approvedResponse = await fetch(`${API_BASE_URL}/equipment-requests/user/${encodeURIComponent(userName)}/approved`);
-  //     const approvedData = await approvedResponse.json();
-  //     
-  //     // Fetch rejected requests
-  //     const rejectedResponse = await fetch(`${API_BASE_URL}/equipment-requests/user/${encodeURIComponent(userName)}/rejected`);
-  //     const rejectedData = await rejectedResponse.json();
-  //     
-  //     // Fetch returned requests
-  //     const returnedResponse = await fetch(`${API_BASE_URL}/equipment-requests/user/${encodeURIComponent(userName)}/returned`);
-  //     const returnedData = await returnedResponse.json();
-  //     
-  //     // Combine and set state
-  //     setCurrentRequests([...pendingData.data, ...approvedData.data]);
-  //     setRequestHistory([...rejectedData.data, ...returnedData.data]);
-  //   } catch (error) {
-  //     console.error('Error fetching requests:', error);
-  //   }
-  // };
+    initializeData();
+  }, []);
+
+  // Helper function to get initials from name
+  const getInitials = (name: string): string => {
+    return name
+      .split(' ')
+      .map(word => word.charAt(0))
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
+  // Helper function to format role for display
+  const formatRole = (role: string): string => {
+    const roleMap: { [key: string]: string } = {
+      admin: 'Administrator',
+      personnel: 'Personnel',
+      user: 'Team Member'
+    };
+    return roleMap[role.toLowerCase()] || 'Team Member';
+  };
 
   const handleNavigation = (path: string) => {
     navigate(path);
@@ -155,32 +214,61 @@ const formatRole = (role: string): string => {
 
   const handleLogout = () => {
     setIsLoggingOut(true);
+    localStorage.clear();
     setTimeout(() => {
       navigate('/');
     }, 2000);
   };
 
-  const handleCancelRequest = async (requestId: number) => {
-    if (!window.confirm('Are you sure you want to cancel this request?')) return;
-    
-    // API INTEGRATION POINT: Cancel request
-    // try {
-    //   const API_BASE_URL = 'http://localhost:5000/api';
-    //   const response = await fetch(`${API_BASE_URL}/equipment-requests/${requestId}/cancel`, {
-    //     method: 'DELETE',
-    //     headers: { 'Content-Type': 'application/json' }
-    //   });
-    //   const result = await response.json();
-    //   if (result.success) {
-    //     alert('Request canceled successfully.');
-    //     fetchUserRequests(); // Refresh data
-    //   }
-    // } catch (error) {
-    //   console.error('Error canceling request:', error);
-    // }
-    
-    alert(`Request ${requestId} canceled successfully.`);
+  const handleViewDetails = (request: EquipmentRequest) => {
+    setSelectedRequest(request);
+    setShowDetailsModal(true);
   };
+
+  const closeDetailsModal = () => {
+    setShowDetailsModal(false);
+    setSelectedRequest(null);
+  };
+
+  const handleCancelRequest = async (requestId: number) => {
+  // Ask for confirmation first
+  const confirmed = await showConfirmationModal(
+    'Cancel Request',
+    'Are you sure you want to cancel this request?'
+  );
+  if (!confirmed) return;
+
+  try {
+    const API_BASE_URL = 'http://localhost:5000/api';
+
+    const response = await fetch(`${API_BASE_URL}/equipment-requests/${requestId}/cancel`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to cancel request');
+    }
+
+    const result = await response.json();
+
+    if (result.success) {
+      await showSuccessModal('Request Canceled', 'Request canceled successfully.');
+      if (currentUser) {
+        await fetchUserRequests(currentUser.name);
+      }
+    } else {
+      await showSuccessModal(
+        'Request Canceled',
+        result.message || 'Failed to cancel request.'
+      );
+    }
+  } catch (error) {
+    console.error('Error canceling request:', error);
+    await showSuccessModal('Error', 'Error canceling request.');
+  }
+};
+
 
   const getStatusClass = (status: string) => {
     switch (status.toLowerCase()) {
@@ -233,6 +321,92 @@ const formatRole = (role: string): string => {
 
   return (
     <div className="app-container">
+      {/* Details Modal */}
+      {showDetailsModal && selectedRequest && (
+        <div className="ddmodal-overlay" onClick={closeDetailsModal}>
+          <div className="ddetails-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="ddmodal-header">
+              <h2>Request Details</h2>
+              <button className="cclose-ddmodal-btn" onClick={closeDetailsModal}>✕</button>
+            </div>
+            
+            <div className="ddmodal-content">
+              <div className="ddetail-section">
+                <h3>Request Information</h3>
+                <div className="ddetail-grid">
+                  <div className="ddetail-item">
+                    <span className="ddetail-label">Request ID:</span>
+                    <span className="ddetail-value">REQ-{selectedRequest.id.toString().padStart(4, '0')}</span>
+                  </div>
+                  <div className="ddetail-item">
+                    <span className="ddetail-label">Status:</span>
+                    <span className={`state-indicator ${getStatusClass(selectedRequest.status)}`}>
+                      {selectedRequest.status === 'in_use' ? 'In Use' : selectedRequest.status.charAt(0).toUpperCase() + selectedRequest.status.slice(1)}
+                    </span>
+                  </div>
+                  <div className="ddetail-item">
+                    <span className="ddetail-label">Request Date:</span>
+                    <span className="ddetail-value">{new Date(selectedRequest.request_date).toLocaleDateString()}</span>
+                  </div>
+                  <div className="ddetail-item">
+                    <span className="ddetail-label">Expected Return:</span>
+                    <span className="ddetail-value">{new Date(selectedRequest.expected_return_date).toLocaleDateString()}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="ddetail-section">
+                <h3>Equipment Information</h3>
+                <div className="ddetail-grid">
+                  <div className="ddetail-item">
+                    <span className="ddetail-label">Equipment Name:</span>
+                    <span className="ddetail-value">{selectedRequest.equipment_name}</span>
+                  </div>
+                  <div className="ddetail-item">
+                    <span className="ddetail-label">Serial Number:</span>
+                    <span className="ddetail-value">{selectedRequest.equipment_serial_number}</span>
+                  </div>
+                  <div className="ddetail-item">
+                    <span className="ddetail-label">Category:</span>
+                    <span className="ddetail-value">{selectedRequest.equipment_category}</span>
+                  </div>
+                </div>
+              </div>
+
+              {selectedRequest.notes && (
+                <div className="ddetail-section">
+                  <h3>Notes</h3>
+                  <p className="ddetail-notes">{selectedRequest.notes}</p>
+                </div>
+              )}
+
+              {selectedRequest.approval_code && (
+                <div className="ddetail-section">
+                  <h3>Approval Code</h3>
+                  <p className="ddetail-approval-code">{selectedRequest.approval_code}</p>
+                </div>
+              )}
+
+              {selectedRequest.rejection_reason && (
+                <div className="ddetail-section">
+                  <h3>Rejection Reason</h3>
+                  <p className="ddetail-rejection">{selectedRequest.rejection_reason}</p>
+                </div>
+              )}
+
+              {selectedRequest.return_notes && (
+                <div className="ddetail-section">
+                  <h3>Return Notes</h3>
+                  <p className="ddetail-notes">{selectedRequest.return_notes}</p>
+                </div>
+              )}
+            </div>
+
+           
+          </div>
+        </div>
+      )}
+
       {/* Logout Loading Overlay */}
       {isLoggingOut && (
         <div className="dashboard-logout-overlay">
@@ -276,21 +450,20 @@ const formatRole = (role: string): string => {
           </div>
         </div>
         
- <div className="profile-box">
-  <div className="profile-avatar">
-    {currentUser ? getInitials(currentUser.name) : 'U'}
-  </div>
-  <div className="profile-details">
-    <div className="profile-name">
-      {currentUser ? currentUser.name : 'Loading...'}
-    </div>
-    <div className="profile-position">
-      {currentUser ? formatRole(currentUser.role) : '...'}
-    </div>
-  </div>
-</div>
+        <div className="profile-box">
+          <div className="profile-avatar">
+            {currentUser ? getInitials(currentUser.name) : 'U'}
+          </div>
+          <div className="profile-details">
+            <div className="profile-name">
+              {currentUser ? currentUser.name : 'Loading...'}
+            </div>
+            <div className="profile-position">
+              {currentUser ? formatRole(currentUser.role) : '...'}
+            </div>
+          </div>
+        </div>
       </div>
-    
 
       {/* Main Content Area */}
       <div className="content-area">
@@ -357,7 +530,7 @@ const formatRole = (role: string): string => {
                     <th>Request Date</th>
                     <th>Usage Period</th>
                     <th>Status</th>
-                    <th>Notes</th>
+                    <th>Approval Code</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
@@ -384,24 +557,27 @@ const formatRole = (role: string): string => {
                             {request.status === 'in_use' ? 'In Use' : request.status.charAt(0).toUpperCase() + request.status.slice(1)}
                           </span>
                         </td>
-                        <td>{request.notes || request.approval_notes || 'N/A'}</td>
+                        <td>
+                          {(request.status === 'approved' || request.status === 'in_use')
+                            ? request.approval_code || 'N/A'
+                            : request.notes || 'N/A'}
+                        </td>
                         <td>
                           <div className="action-buttons">
-                            <button className="mini-btn action-secondary view-btn" title="View Details">
-                              <i>👁️</i>
+                            <button 
+                              className="btn-view" 
+                              title="View Details"
+                              onClick={() => handleViewDetails(request)}
+                            >
+                              👁️
                             </button>
                             {request.status === 'pending' && (
                               <button
-                                className="mini-btn action-secondary cancel-btn"
+                                className="btn-cancel"
                                 title="Cancel Request"
                                 onClick={() => handleCancelRequest(request.id)}
                               >
-                                <i>❌</i>
-                              </button>
-                            )}
-                            {request.status === 'approved' && (
-                              <button className="mini-btn action-primary extend-btn" title="Request Extension">
-                                <i>📅</i>
+                                ❌
                               </button>
                             )}
                           </div>
@@ -486,22 +662,27 @@ const formatRole = (role: string): string => {
                         <td>
                           {request.status === 'rejected'
                             ? request.rejection_reason || 'N/A'
-                            : request.status === 'completed'
+                            : request.status === 'returned'
                             ? request.return_notes || 'Returned'
                             : request.notes || 'N/A'}
                         </td>
                         <td>
                           <div className="action-buttons">
-                            <button className="mini-btn action-secondary view-btn" title="View Details">
-                              <i>👁️</i>
+                            <button 
+                              className="btn-view" 
+                              title="View Details"
+                              onClick={() => handleViewDetails(request)}
+                            >
+                              👁️
                             </button>
-                            {request.status === 'completed' && (
+
+                            {request.status === 'rejected' && (
                               <button
-                                className="mini-btn action-primary request-again-btn"
+                                className="btn-request-again"
                                 title="Request Again"
                                 onClick={() => handleNavigation('/equipments')}
                               >
-                                <i>🔄</i>
+                                🔄️
                               </button>
                             )}
                           </div>
@@ -527,14 +708,16 @@ const formatRole = (role: string): string => {
 
         {/* Metrics Row */}
         <div className="request-stats-tabs">
-        <div className="request-stat-tab request-blue-tab">
-          <div className="request-stat-content">
-            <div className="request-stat-title">Total Requests</div>
-            <div className="request-stat-value">
-              {currentRequests.length + requestHistory.length}</div>
-          </div></div>
+          <div className="request-stat-tab request-blue-tab">
+            <div className="request-stat-content">
+              <div className="request-stat-title">Total Requests</div>
+              <div className="request-stat-value">
+                {currentRequests.length + requestHistory.length}
+              </div>
+            </div>
+          </div>
           <div className="request-stat-tab request-green-tab">
-          <div className="request-stat-content">
+            <div className="request-stat-content">
               <div className="request-stat-title">Approved</div>
               <div className="request-stat-value">
                 {currentRequests.filter(req => req.status === 'approved' || req.status === 'in_use').length}
@@ -553,13 +736,13 @@ const formatRole = (role: string): string => {
             <div className="request-stat-content">
               <div className="request-stat-title">Completed</div>
               <div className="request-stat-value">
-                {requestHistory.filter(req => req.status === 'completed').length}
+                {requestHistory.filter(req => req.status === 'returned' || req.status === 'completed').length}
               </div>
             </div>
           </div>
           <div className="request-stat-tab request-purple-tab">
             <div className="request-stat-content">
-              <div className="request-stat-title">Denied/Canceled</div>
+              <div className="request-stat-title">Rejected/Canceled</div>
               <div className="request-stat-value">
                 {requestHistory.filter(req => req.status === 'rejected' || req.status === 'canceled').length}
               </div>
@@ -567,7 +750,17 @@ const formatRole = (role: string): string => {
           </div>
         </div>
       </div>
+
+ <SuccessModal
+  isOpen={successModal.isOpen}
+  onClose={closeSuccessModal}
+  title={successModal.title}
+  message={successModal.message}
+  type={successModal.type}
+/>
+
     </div>
+    
   );
 };
 
