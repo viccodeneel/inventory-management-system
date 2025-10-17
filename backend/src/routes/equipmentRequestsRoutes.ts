@@ -16,6 +16,7 @@ interface EquipmentRequest {
   equipment_category: string;
   equipment_serial_number: string;
   equipment_location: string;
+  equipment_quantity: number;
   request_date: string;
   expected_return_date: string;
   actual_return_date?: string;
@@ -89,6 +90,7 @@ const createEquipmentRequestsRoutes = () => {
           rr.equipment_category,
           rr.equipment_serial_number,
           rr.equipment_location,
+          rr.equipment_quantity,
           rr.request_id AS id,
           rr.requested_date AS request_date,
           rr.rejected_date,
@@ -116,7 +118,8 @@ const createEquipmentRequestsRoutes = () => {
           pr.equipment_brand,
           pr.equipment_category,
           pr.equipment_serial_number,
-          pr.equipment_location
+          pr.equipment_location,
+          pr.equipment_quantity,
         FROM pending_requests pr
         WHERE pr.status = 'pending'
         ORDER BY pr.created_at DESC
@@ -140,7 +143,8 @@ const createEquipmentRequestsRoutes = () => {
           ar.equipment_brand,
           ar.equipment_category,
           ar.equipment_serial_number,
-          ar.equipment_location
+          ar.equipment_location,
+          ar.equipment_quantity,  
         FROM approved_requests ar
         ORDER BY ar.approved_date DESC
       `);
@@ -163,7 +167,8 @@ const createEquipmentRequestsRoutes = () => {
           ar.equipment_brand,
           ar.equipment_category,
           ar.equipment_serial_number,
-          ar.equipment_location
+          ar.equipment_location,
+          ar.equipment_quantity,  
         FROM approved_requests ar
         WHERE ar.status = 'returned'
         ORDER BY ar.actual_return_date DESC
@@ -186,6 +191,7 @@ const createEquipmentRequestsRoutes = () => {
         equipment_category,
         equipment_serial_number,
         equipment_location,
+        equipment_quantity,
         request_date,
         expected_return_date,
         user_name,
@@ -221,6 +227,7 @@ const createEquipmentRequestsRoutes = () => {
         INSERT INTO pending_requests (
           equipment_id, equipment_name, equipment_model, equipment_brand, 
           equipment_category, equipment_serial_number, equipment_location,
+          equipment_quantity,
           user_name, request_date, expected_return_date, status, notes
         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
         RETURNING *
@@ -233,6 +240,7 @@ const createEquipmentRequestsRoutes = () => {
           equipment_category,
           equipment_serial_number,
           equipment_location,
+          equipment_quantity,
           user_name,
           request_date || new Date().toISOString(),
           expected_return_date,
@@ -267,6 +275,7 @@ const createEquipmentRequestsRoutes = () => {
             pr.equipment_category,
             pr.request_date,
             pr.expected_return_date,
+            pr.equipment_quantity,
             pr.status,
             pr.notes
           FROM pending_requests pr
@@ -299,6 +308,7 @@ const createEquipmentRequestsRoutes = () => {
             ar.equipment_category,
             ar.request_date,
             ar.expected_return_date,
+            ar.equipment_quantity,
             ar.status,
             ar.approval_code
           FROM approved_requests ar
@@ -330,6 +340,7 @@ const createEquipmentRequestsRoutes = () => {
             rr.equipment_serial_number,
             rr.equipment_category,
             rr.requested_date AS request_date,
+            rr.equipment_quantity,
             rr.expected_return_date,
             rr.rejection_reason
           FROM rejected_requests rr
@@ -362,6 +373,7 @@ const createEquipmentRequestsRoutes = () => {
             ar.equipment_category,
             ar.request_date,
             ar.expected_return_date,
+            ar.equipment_quantity,
             ar.status,
             ar.return_notes
           FROM approved_requests ar
@@ -458,6 +470,7 @@ const createEquipmentRequestsRoutes = () => {
               equipment_category,
               equipment_serial_number,
               equipment_location,
+              equipment_quantity,
               user_id,
               user_name,
               request_date,
@@ -484,6 +497,7 @@ const createEquipmentRequestsRoutes = () => {
               request.equipment_category,
               request.equipment_serial_number,
               request.equipment_location,
+              request.equipment_quantity,
               request.user_id,
               request.user_name,
               request.request_date,
@@ -584,6 +598,7 @@ const createEquipmentRequestsRoutes = () => {
               equipment_category,
               equipment_serial_number,
               equipment_location,
+              equipment_quantity,
               user_id,
               user_name,
               requested_date,
@@ -592,8 +607,7 @@ const createEquipmentRequestsRoutes = () => {
               rejected_date,
               created_at
             ) VALUES (
-              $1, $2, $3, $4, $5, $6, $7, $8,
-              $9, $10, $11, $12, $13, $14, NOW()
+              $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW()
             )
             `,
             [
@@ -605,6 +619,7 @@ const createEquipmentRequestsRoutes = () => {
               rejectedRequest.equipment_category,
               rejectedRequest.equipment_serial_number,
               rejectedRequest.equipment_location,
+              rejectedRequest.equipment_quantity,
               rejectedRequest.user_id,
               rejectedRequest.user_name,
               rejectedRequest.request_date,
@@ -716,12 +731,13 @@ const createEquipmentRequestsRoutes = () => {
             SET status = 'returned',
                 actual_return_date = NOW(),
                 return_condition = $1,
-                return_notes = $2,
+                equipment_quantity = $2,
+                return_notes = $3,
                 updated_at = NOW()
-            WHERE id = $3
+            WHERE id = $4
             RETURNING *
           `,
-            [return_condition || 'good', return_notes, id]
+            [return_condition || 'good', request.equipment_quantity, return_notes, id]
           );
 
           const returnedRequest = result.rows[0];
@@ -735,6 +751,7 @@ const createEquipmentRequestsRoutes = () => {
               user_id,
               borrowed_date,
               expected_return_date,
+              equipment_quantity,
               actual_return_date,
               return_condition,
               return_notes,
@@ -747,6 +764,7 @@ const createEquipmentRequestsRoutes = () => {
               returnedRequest.user_id,
               returnedRequest.approved_date || returnedRequest.created_at,
               returnedRequest.expected_return_date,
+              returnedRequest.equipment_quantity,
               returnedRequest.actual_return_date,
               return_condition || 'good',
               return_notes

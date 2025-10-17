@@ -1410,3 +1410,17 @@
   position: relative;
   padding: 20px 0 40px 0;
 }
+
+/* Form enhancements for quantity */
+.form-group input[type="number"] {
+  appearance: textfield;  /* Remove spinner if needed */
+}
+
+/* Enhanced bar count with stock label */
+.inventory-bar-count {
+  font-size: 14px;
+  font-weight: 600;
+  color: #3b82f6;
+  text-align: center;
+  margin-top: 4px;  /* Spacing adjustment */
+}

@@ -479,6 +479,9 @@ const formatRole = (role: string): string => {
           >
             <i>🚪</i> Logout
           </div>
+
+
+          
         </div>
         <div className="profile-box">
   <div className="profile-avatar">

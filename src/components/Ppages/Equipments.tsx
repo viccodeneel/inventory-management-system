@@ -13,6 +13,7 @@ interface Equipment {
   condition: string;
   category: string;
   location: string;
+  quantity: number;
   assigned_to: string | null;
 }
 
@@ -296,6 +297,7 @@ const closeSuccessModal = () => {
           equipment_category: selectedEquipment.category,
           equipment_serial_number: selectedEquipment.serial_number,
           equipment_location: selectedEquipment.location,
+          equipment_quantity: selectedEquipment.quantity || 1,
           request_date: new Date().toISOString(),
           expected_return_date: returnDate,
          // user_id: getCurrentUserId(), // Add when auth is ready
@@ -494,6 +496,11 @@ const formatRole = (role: string): string => {
                     <label>Current Location:</label>
                     <span>{selectedEquipment.location}</span>
                   </div>
+                   <div className="detail-item">
+                    <label>Current Quantity:</label>
+                    <span>{selectedEquipment.quantity}</span>
+                  </div>
+
                   <div className="detail-item">
                     <label>Status:</label>
                     <span className={`equipment-status status-${selectedEquipment.status.toLowerCase().replace(' ', '-')}`}>
@@ -510,6 +517,7 @@ const formatRole = (role: string): string => {
                     <label>Request Date:</label>
                     <span>{getCurrentDateTime()}</span>
                   </div>
+
                   <div className="detail-item">
                     <label>Expected Return Date: <span className="required">*</span></label>
                     <input
@@ -521,6 +529,22 @@ const formatRole = (role: string): string => {
                       required
                     />
                   </div>
+               
+      <div className="detail-item">
+                    <label>Equipment Quantity: <span className="required">*</span></label>
+                    <input
+                      type="number"
+                      value={selectedEquipment?.quantity ?? 1}
+                      onChange={(e) => {
+                        const newQuantity = Number(e.target.value);
+                        setSelectedEquipment(prev => prev ? { ...prev, quantity: newQuantity } : null);
+                      }}
+                      min={1}
+                      className="number"
+                      required
+                    />
+                  </div>
+
                   <div className="detail-item full-width">
                     <label>Requested By:</label>
                    <h4> {currentUser ? currentUser.name : 'Loading...'}  ({currentUser ? formatRole(currentUser.role) : 'Loading...'})</h4>
@@ -724,6 +748,7 @@ const formatRole = (role: string): string => {
                     <th>Status</th>
                     <th>Condition</th>
                     <th>Location</th>
+                    <th>Quantity</th>
                     <th>Action</th>
                   </tr>
                 </thead>
@@ -743,6 +768,8 @@ const formatRole = (role: string): string => {
                         </td>
                         <td>{item.condition}</td>
                         <td>{item.location}</td>
+                         <td>{item.quantity}</td>
+
                         <td>
                           <button 
                             className={`request-button ${!isRequestable(item.status) ? 'disabled' : ''}`}

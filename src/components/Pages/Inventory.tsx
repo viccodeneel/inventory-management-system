@@ -24,6 +24,7 @@ interface Equipment {
   condition: string;
   category: string;
   location: string;
+   quantity: number;
   assigned_to: string | null;
 }
 
@@ -51,6 +52,7 @@ interface AddEquipmentForm {
   purchase_date: string;
   warranty_expiry: string;
   notes: string;
+  quantity: number;  // New: For adding multiple units
 }
 
 const Inventory: React.FC = () => {
@@ -94,8 +96,8 @@ const Inventory: React.FC = () => {
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [selectedEquipment, setSelectedEquipment] = useState<Equipment | null>(null);
   const [openDropdown, setOpenDropdown] = useState<number | null>(null);
-  const [addForm, setAddForm] = useState<AddEquipmentForm>({
 
+ const [addForm, setAddForm] = useState<AddEquipmentForm>({
     name: '',
     model: '',
     brand: '',
@@ -106,7 +108,8 @@ const Inventory: React.FC = () => {
     status: 'available',
     purchase_date: '',
     warranty_expiry: '',
-    notes: ''
+    notes: '',
+    quantity: 1  // New: Default to 1
   });
 
   const [editForm, setEditForm] = useState<AddEquipmentForm>({
@@ -120,7 +123,8 @@ const Inventory: React.FC = () => {
     status: 'available',
     purchase_date: '',
     warranty_expiry: '',
-    notes: ''
+    notes: '',
+    quantity: 1  // New: Default to 1
   });
   const [newStatus, setNewStatus] = useState('');
 
@@ -229,7 +233,7 @@ const closeSuccessModal = () => {
     }
   };
 
-  // Fetch locations for dropdown 
+  // Fetch locations for dropdown
   const fetchLocations = async () => {
     try {
       // Hardcoded locations 
@@ -250,25 +254,14 @@ const closeSuccessModal = () => {
   };
 
   // Add new equipment
-  const handleAddEquipment = async (e: React.FormEvent) => {
+const handleAddEquipment = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
 
     try {
-      // Create the payload with the correct field mapping
       const payload = {
-        name: addForm.name,
-        model: addForm.model,
-        brand: addForm.brand,
-        serial_number: addForm.serial_number,
-        category_id: addForm.category_id,
-        location_id: addForm.location_id,
-        condition: addForm.condition,
-        status: addForm.status,
-        // Optional fields 
-        ...(addForm.purchase_date && { purchase_date: addForm.purchase_date }),
-        ...(addForm.warranty_expiry && { warranty_expiry: addForm.warranty_expiry }),
-        ...(addForm.notes && { notes: addForm.notes })
+        ...addForm,
+        quantity: addForm.quantity  // Include quantity
       };
 
       console.log('Sending payload:', payload);
@@ -286,7 +279,9 @@ const closeSuccessModal = () => {
         throw new Error(errorData.error || 'Failed to add equipment');
       }
 
-      // Reset form and close modal
+      const addedItems = await response.json();  // Now an array
+
+     // Reset form and close modal
       setAddForm({
         name: '',
         model: '',
@@ -298,7 +293,8 @@ const closeSuccessModal = () => {
         status: 'available',
         purchase_date: '',
         warranty_expiry: '',
-        notes: ''
+        notes: '',
+        quantity: 1
       });
       setShowAddModal(false);
 
@@ -308,16 +304,10 @@ const closeSuccessModal = () => {
         fetchEquipmentStats()
       ]);
 
-      // Show success modal
-      setSuccessModal({
-        isOpen: true,
-        title: 'Success',
-        message: 'Equipment added successfully!',
-        type: 'success'
-      });
+     showSuccessModal('Success', `${addedItems.length} equipment item(s) added successfully!`);
     } catch (error) {
       console.error('Error adding equipment:', error);
-      alert(`Failed to add equipment: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      showSuccessModal('Error', `Failed to add equipment: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
     } finally {
       setSubmitting(false);
     }
@@ -391,7 +381,7 @@ const closeSuccessModal = () => {
     const { name, value } = e.target;
     setAddForm(prev => ({
       ...prev,
-      [name]: value
+      [name]: name === 'quantity' ? parseInt(value) || 1 : value  // Handle quantity as number
     }));
   };
 
@@ -426,7 +416,8 @@ const closeSuccessModal = () => {
       status: equipment.status,
       purchase_date: '',
       warranty_expiry: '',
-      notes: ''
+      notes: '',
+       quantity: equipment.quantity || 1
     });
     setShowEditModal(true);
     setOpenDropdown(null);
@@ -473,6 +464,7 @@ const closeSuccessModal = () => {
         location_id: editForm.location_id,
         condition: editForm.condition,
         status: editForm.status,
+        quantity: editForm.quantity || 1,
         ...(editForm.purchase_date && { purchase_date: editForm.purchase_date }),
         ...(editForm.warranty_expiry && { warranty_expiry: editForm.warranty_expiry }),
         ...(editForm.notes && { notes: editForm.notes })
@@ -651,7 +643,7 @@ const closeSuccessModal = () => {
 
   const exportData = () => {
     const csvContent = [
-      ['ID', 'Serial Number', 'Name', 'Model', 'Brand', 'Category', 'Status', 'Condition', 'Location', 'Assigned To'],
+      ['ID', 'Serial Number', 'Name', 'Model', 'Brand', 'Category', 'Status', 'Condition', 'Location', 'Quantity', 'Assigned To'],
       ...filteredEquipment.map(item => [
         item.id,
         item.serial_number,
@@ -662,6 +654,7 @@ const closeSuccessModal = () => {
         item.status,
         item.condition,
         item.location,
+        item.quantity || 1,
         item.assigned_to || '--'
       ])
     ].map(row => row.join(',')).join('\n');
@@ -879,6 +872,7 @@ const closeSuccessModal = () => {
                     <th>Status</th>
                     <th>Condition</th>
                     <th>Location</th>
+                    <th>Quantity</th>
                     <th>Assigned To</th>
                     <th>Actions</th>
                   </tr>
@@ -900,6 +894,7 @@ const closeSuccessModal = () => {
                         </td>
                         <td>{item.condition}</td>
                         <td>{item.location}</td>
+                        <td>{item.quantity || 1}</td>
                         <td>{item.assigned_to || '--'}</td>
                         <td>
                           <div className="actions-dropdown-container">
@@ -946,6 +941,8 @@ const closeSuccessModal = () => {
                 </tbody>
               </table>
             </div>
+
+            
 
             {/* Pagination Controls */}
             {filteredEquipment.length > 0 && (
@@ -1038,31 +1035,34 @@ const closeSuccessModal = () => {
               ))}
             </div>
             
+            
             {/* Chart area with grid */}
-            <div className="inventory-category-chart labeled-grid">
-              {categoryData.map(category => {
-                const percentage = (category.count / maxCount) * 100;
-                const barHeight = Math.max(minHeight, (percentage / 100) * maxHeight);
-                
-                return (
-                  <div className="inventory-chart-bar" key={category.name}>
-                    <div 
-                      className="inventory-bar" 
-                      style={{ height: `${barHeight}px` }}
-                      title={`${category.name}: ${category.count} items`}
-                    ></div>
-                    <div className="inventory-bar-label">{category.name}</div>
-                    <div className="inventory-bar-count">{category.count}</div>
-                  </div>
-                );
-              })}
-            </div>
-          </>
-        );
-      })()}
+           <div className="inventory-category-chart labeled-grid">
+          {categoryData.map(category => {
+            const percentage = (category.count / maxCount) * 100;
+            const barHeight = Math.max(minHeight, (percentage / 100) * maxHeight);
+            
+            return (
+              <div className="inventory-chart-bar" key={category.name}>
+                <div 
+                  className="inventory-bar" 
+                  style={{ height: `${barHeight}px` }}
+                  title={`${category.name}: ${category.count} items in stock`}
+                ></div>
+                <div className="inventory-bar-label">{category.name}</div>
+                <div className="inventory-bar-count">Stock: {category.count}</div>  {/* New: Amount in stock label */}
+              </div>
+            );
+          })}
+        </div>
+      </>
+    );
+  })()}
     </div>
   </div>
 )}
+
+
         </div>
 
         {/* Edit Equipment Modal */}
@@ -1165,6 +1165,7 @@ const closeSuccessModal = () => {
                       ))}
                     </select>
                   </div>
+
                   
                   <div className="form-group">
                     <label>Status *</label>
@@ -1197,6 +1198,19 @@ const closeSuccessModal = () => {
                       <option value="poor">Poor</option>
                     </select>
                   </div>
+
+  <div className="form-group">
+    <label>Quantity *</label>
+    <input
+      type="number"
+      name="quantity"
+      min="1"
+      value={editForm.quantity || 1}
+      onChange={handleEditFormChange}
+      required
+      disabled={submitting}
+    />
+  </div>
                 </div>
                 
                 <div className="modal-actions">
@@ -1484,7 +1498,20 @@ const closeSuccessModal = () => {
                       disabled={submitting}
                     />
                   </div>
-                  
+
+                       <div className="form-group">
+    <label>Quantity *</label>
+    <input
+      type="number"
+      name="quantity"
+      min="1"
+      value={addForm.quantity}
+      onChange={handleFormChange}
+      required
+      disabled={submitting}
+    />
+  </div>
+  
                   <div className="form-group form-group-full">
                     <label>Notes</label>
                     <textarea
@@ -1495,6 +1522,8 @@ const closeSuccessModal = () => {
                       disabled={submitting}
                     />
                   </div>
+
+
                 </div>
                 
                 <div className="modal-actions">

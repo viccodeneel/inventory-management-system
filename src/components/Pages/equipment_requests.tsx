@@ -33,6 +33,7 @@ interface EquipmentRequest {
   priority?: string;
   purpose?: string;
   notes?: string;
+  quantity: number;
   approval_code?: string;
   approved_date?: string;
   approved_by?: string;
@@ -934,6 +935,7 @@ const showSuccessModal = (title: string, message: string, type: 'success' | 'err
                       <th>Request ID</th>
                       <th>User</th>
                       <th>Equipment</th>
+                      <th>Quantity</th>
                       <th>Request Date</th>
                       <th>Return Date</th>
                       {(activeTab === 'approved' || activeTab === 'in_use') && <th>Approval Code</th>}
@@ -960,6 +962,7 @@ const showSuccessModal = (title: string, message: string, type: 'success' | 'err
                               <div className="equipment-serial">{request.equipment_serial_number}</div>
                             </div>
                           </td>
+                          <td>{request.quantity}</td>
                           <td>{new Date(request.request_date).toLocaleDateString()}</td>
                           <td>{new Date(request.expected_return_date).toLocaleDateString()}</td>
                           {(activeTab === 'approved' || activeTab === 'in_use') && (
@@ -1114,6 +1117,7 @@ const showSuccessModal = (title: string, message: string, type: 'success' | 'err
                 <p><strong>Request ID:</strong> REQ-{selectedRequest.id.toString().padStart(4, '0')}</p>
                 <p><strong>User:</strong> {selectedRequest.user_name}</p>
                 <p><strong>Equipment:</strong> {selectedRequest.equipment_name}</p>
+                <p><strong>Quantity:</strong> {selectedRequest.quantity}</p>
                 <p><strong>Serial Number:</strong> {selectedRequest.equipment_serial_number}</p>
                 <p><strong>Return Date:</strong> {new Date(selectedRequest.expected_return_date).toLocaleDateString()}</p>
                 {selectedRequest.purpose && (
@@ -1168,6 +1172,7 @@ const showSuccessModal = (title: string, message: string, type: 'success' | 'err
                 <p><strong>Request ID:</strong> REQ-{selectedRequest.id.toString().padStart(4, '0')}</p>
                 <p><strong>User:</strong> {selectedRequest.user_name}</p>
                 <p><strong>Equipment:</strong> {selectedRequest.equipment_name}</p>
+                <p><strong>Quantity:</strong> {selectedRequest.quantity}</p>
                 <p><strong>Serial Number:</strong> {selectedRequest.equipment_serial_number}</p>
                 {selectedRequest.purpose && (
                   <p><strong>Purpose:</strong> {selectedRequest.purpose}</p>
@@ -1222,6 +1227,7 @@ const showSuccessModal = (title: string, message: string, type: 'success' | 'err
                 <p><strong>Request ID:</strong> REQ-{selectedRequest.id.toString().padStart(4, '0')}</p>
                 <p><strong>User:</strong> {selectedRequest.user_name}</p>
                 <p><strong>Equipment:</strong> {selectedRequest.equipment_name}</p>
+                <p><strong>Quantity:</strong> {selectedRequest.quantity}</p>
                 <p><strong>Serial Number:</strong> {selectedRequest.equipment_serial_number}</p>
                 <p><strong>Expected Return:</strong> {new Date(selectedRequest.expected_return_date).toLocaleDateString()}</p>
               </div>

@@ -698,5 +698,5 @@ router.post("/block-user/:id", async (req, res) => {
     client.release();
   }
 });
-    
+
 export default router;
