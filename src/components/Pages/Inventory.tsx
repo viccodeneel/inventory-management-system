@@ -25,6 +25,7 @@ interface Equipment {
   category: string;
   location: string;
    quantity: number;
+   available_quantity: number;
   assigned_to: string | null;
 }
 
@@ -279,7 +280,7 @@ const handleAddEquipment = async (e: React.FormEvent) => {
         throw new Error(errorData.error || 'Failed to add equipment');
       }
 
-      const addedItems = await response.json();  // Now an array
+      const addedEquipment = await response.json();  // Single item now
 
      // Reset form and close modal
       setAddForm({
@@ -304,7 +305,7 @@ const handleAddEquipment = async (e: React.FormEvent) => {
         fetchEquipmentStats()
       ]);
 
-     showSuccessModal('Success', `${addedItems.length} equipment item(s) added successfully!`);
+     showSuccessModal('Success', `Equipment added successfully with quantity: ${addedEquipment.quantity}`);
     } catch (error) {
       console.error('Error adding equipment:', error);
       showSuccessModal('Error', `Failed to add equipment: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
@@ -389,7 +390,7 @@ const handleAddEquipment = async (e: React.FormEvent) => {
     const { name, value } = e.target;
     setEditForm(prev => ({
       ...prev,
-      [name]: value
+      [name]: name === 'quantity' ? parseInt(value) || 1 : value
     }));
   };
 
@@ -465,6 +466,7 @@ const handleAddEquipment = async (e: React.FormEvent) => {
         condition: editForm.condition,
         status: editForm.status,
         quantity: editForm.quantity || 1,
+        available_quantity: editForm.status === 'available' ? editForm.quantity : 0,
         ...(editForm.purchase_date && { purchase_date: editForm.purchase_date }),
         ...(editForm.warranty_expiry && { warranty_expiry: editForm.warranty_expiry }),
         ...(editForm.notes && { notes: editForm.notes })
@@ -872,8 +874,8 @@ const handleAddEquipment = async (e: React.FormEvent) => {
                     <th>Status</th>
                     <th>Condition</th>
                     <th>Location</th>
-                    <th>Quantity</th>
-                    <th>Assigned To</th>
+                    <th>Total Quantity</th>
+                    <th>Available Quantity</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
@@ -895,7 +897,7 @@ const handleAddEquipment = async (e: React.FormEvent) => {
                         <td>{item.condition}</td>
                         <td>{item.location}</td>
                         <td>{item.quantity || 1}</td>
-                        <td>{item.assigned_to || '--'}</td>
+                        <td>{item.available_quantity || 0}</td>
                         <td>
                           <div className="actions-dropdown-container">
                             <button 

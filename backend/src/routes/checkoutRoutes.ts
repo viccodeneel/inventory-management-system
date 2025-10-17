@@ -8,20 +8,24 @@ router.post("/checkout", async (req: Request, res: Response) => {
   const client = await pool.connect();
   
   try {
-    const { equipment_id, user_id } = req.body;
+    const { equipment_id, user_id, quantity: checkOutQuantity } = req.body;
 
     // Validate required fields
-    if (!equipment_id || !user_id) {
+    if (!equipment_id || !user_id || !checkOutQuantity) {
       return res.status(400).json({ 
-        error: "Missing required fields: equipment_id, user_id" 
+        error: "Missing required fields: equipment_id, user_id, quantity" 
       });
+    }
+
+    if (checkOutQuantity < 1) {
+      return res.status(400).json({ error: "Quantity must be at least 1" });
     }
 
     await client.query('BEGIN');
 
-    // Check if equipment exists and is available
+    // Check if equipment exists and has enough available
     const equipmentCheck = await client.query(
-      `SELECT id, name, serial_number, status FROM equipment WHERE id = $1`,
+      `SELECT id, name, serial_number, status, quantity, available_quantity FROM equipment WHERE id = $1 FOR UPDATE`,
       [equipment_id]
     );
 
@@ -32,10 +36,10 @@ router.post("/checkout", async (req: Request, res: Response) => {
 
     const equipment = equipmentCheck.rows[0];
 
-    if (equipment.status !== 'available') {
+    if (equipment.available_quantity < checkOutQuantity) {
       await client.query('ROLLBACK');
       return res.status(400).json({ 
-        error: `Equipment is currently ${equipment.status}, not available for checkout` 
+        error: `Not enough available quantity (available: ${equipment.available_quantity})` 
       });
     }
 
@@ -52,28 +56,60 @@ router.post("/checkout", async (req: Request, res: Response) => {
 
     const user = userCheck.rows[0];
 
-    // Update equipment status and assign to user
-    const updateResult = await client.query(
-      `UPDATE equipment 
-       SET status = 'in_use', 
-           assigned_to = $1, 
-           updated_at = NOW()
-       WHERE id = $2
-       RETURNING *`,
-      [user.name, equipment_id]
+    // Insert into active_checkouts
+    await client.query(
+      `INSERT INTO active_checkouts 
+        (equipment_id, user_id, quantity, user_name, department)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [equipment_id, user_id, checkOutQuantity, user.name, user.department]
     );
 
-    // Log the checkout in activity/history table
+    // Update equipment available_quantity
+    const newAvailable = equipment.available_quantity - checkOutQuantity;
+    await client.query(
+      `UPDATE equipment 
+       SET available_quantity = $1, updated_at = NOW()
+       WHERE id = $2`,
+      [newAvailable, equipment_id]
+    );
+
+    // Update status and assigned_to
+    const activeCountRes = await client.query(
+      `SELECT COUNT(*) FROM active_checkouts WHERE equipment_id = $1`,
+      [equipment_id]
+    );
+    const activeCount = parseInt(activeCountRes.rows[0].count);
+
+    let assigned_to = null;
+    if (newAvailable < equipment.quantity) {  // Some checked out
+      if (activeCount === 1) {
+        assigned_to = user.name;
+      } else {
+        assigned_to = 'Multiple';
+      }
+    }
+
+    const status = (newAvailable > 0) ? 'available' : 'in_use';
+
+    const updateResult = await client.query(
+      `UPDATE equipment 
+       SET status = $1, assigned_to = $2, updated_at = NOW()
+       WHERE id = $3
+       RETURNING *`,
+      [status, assigned_to, equipment_id]
+    );
+
+    // Log the checkout in history
     await client.query(
       `INSERT INTO checkout_history 
-        (equipment_id, equipment_name, equipment_serial, action, user_name, department, timestamp)
-       VALUES ($1, $2, $3, 'check_out', $4, $5, NOW())`,
-      [equipment_id, equipment.name, equipment.serial_number, user.name, user.department]
+        (equipment_id, equipment_name, equipment_serial, action, user_name, department, timestamp, quantity)
+       VALUES ($1, $2, $3, 'check_out', $4, $5, NOW(), $6)`,
+      [equipment_id, equipment.name, equipment.serial_number, user.name, user.department, checkOutQuantity]
     );
 
     await client.query('COMMIT');
 
-    console.log(`✅ Equipment checked out: ${equipment.name} to ${user.name}`);
+    console.log(`✅ Equipment checked out: ${equipment.name} (${checkOutQuantity}) to ${user.name}`);
     
     res.status(200).json({
       message: "Equipment checked out successfully",
@@ -81,6 +117,7 @@ router.post("/checkout", async (req: Request, res: Response) => {
       checkout_info: {
         user_name: user.name,
         department: user.department,
+        quantity: checkOutQuantity,
         timestamp: new Date().toISOString()
       }
     });
@@ -99,13 +136,17 @@ router.post("/checkin", async (req: Request, res: Response) => {
   const client = await pool.connect();
   
   try {
-    const { equipment_id, condition } = req.body;
+    const { active_checkout_id, condition, quantity: checkInQuantity } = req.body;
 
     // Validate required fields
-    if (!equipment_id || !condition) {
+    if (!active_checkout_id || !condition || !checkInQuantity) {
       return res.status(400).json({ 
-        error: "Missing required fields: equipment_id, condition" 
+        error: "Missing required fields: active_checkout_id, condition, quantity" 
       });
+    }
+
+    if (checkInQuantity < 1) {
+      return res.status(400).json({ error: "Quantity must be at least 1" });
     }
 
     // Validate condition value
@@ -118,58 +159,106 @@ router.post("/checkin", async (req: Request, res: Response) => {
 
     await client.query('BEGIN');
 
-    // Check if equipment exists and is checked out
-    const equipmentCheck = await client.query(
-      `SELECT id, name, serial_number, status, assigned_to FROM equipment WHERE id = $1`,
-      [equipment_id]
+    // Get active checkout
+    const activeCheck = await client.query(
+      `SELECT * FROM active_checkouts WHERE id = $1 FOR UPDATE`,
+      [active_checkout_id]
     );
 
-    if (equipmentCheck.rows.length === 0) {
+    if (activeCheck.rows.length === 0) {
       await client.query('ROLLBACK');
-      return res.status(404).json({ error: "Equipment not found" });
+      return res.status(404).json({ error: "Active checkout not found" });
     }
 
-    const equipment = equipmentCheck.rows[0];
+    const active = activeCheck.rows[0];
 
-    if (equipment.status !== 'in_use') {
+    if (checkInQuantity > active.quantity) {
       await client.query('ROLLBACK');
       return res.status(400).json({ 
-        error: `Equipment is not checked out (current status: ${equipment.status})` 
+        error: `Quantity exceeds checked out amount (checked out: ${active.quantity})` 
       });
     }
 
-    const previousUser = equipment.assigned_to;
+    // Get equipment
+    const equipmentCheck = await client.query(
+      `SELECT id, name, serial_number, quantity, available_quantity FROM equipment WHERE id = $1 FOR UPDATE`,
+      [active.equipment_id]
+    );
+    const equipment = equipmentCheck.rows[0];
 
-    // Update equipment status, condition, and clear assignment
-    const updateResult = await client.query(
+    // Update equipment available_quantity
+    const newAvailable = equipment.available_quantity + checkInQuantity;
+    await client.query(
       `UPDATE equipment 
-       SET status = 'available', 
-           condition = $1,
-           assigned_to = NULL, 
-           updated_at = NOW()
-       WHERE id = $2
-       RETURNING *`,
-      [condition, equipment_id]
+       SET available_quantity = $1, updated_at = NOW()
+       WHERE id = $2`,
+      [newAvailable, active.equipment_id]
     );
 
-    // Log the check-in in activity/history table
+    // Update or delete active checkout
+    if (checkInQuantity === active.quantity) {
+      await client.query(
+        `DELETE FROM active_checkouts WHERE id = $1`,
+        [active_checkout_id]
+      );
+    } else {
+      await client.query(
+        `UPDATE active_checkouts 
+         SET quantity = quantity - $1
+         WHERE id = $2`,
+        [checkInQuantity, active_checkout_id]
+      );
+    }
+
+    // Update status and assigned_to
+    const activeCountRes = await client.query(
+      `SELECT COUNT(*) FROM active_checkouts WHERE equipment_id = $1`,
+      [active.equipment_id]
+    );
+    const activeCount = parseInt(activeCountRes.rows[0].count);
+
+    let assigned_to = null;
+    if (newAvailable < equipment.quantity) {  // Some still checked out
+      if (activeCount === 1) {
+        const remainingUserRes = await client.query(
+          `SELECT user_name FROM active_checkouts WHERE equipment_id = $1 LIMIT 1`,
+          [active.equipment_id]
+        );
+        assigned_to = remainingUserRes.rows[0].user_name;
+      } else {
+        assigned_to = 'Multiple';
+      }
+    }
+
+    const status = (newAvailable > 0) ? 'available' : 'in_use';
+
+    const updateResult = await client.query(
+      `UPDATE equipment 
+       SET status = $1, assigned_to = $2, condition = $3, updated_at = NOW()
+       WHERE id = $4
+       RETURNING *`,
+      [status, assigned_to, condition, active.equipment_id]
+    );
+
+    // Log the check-in in history
     await client.query(
       `INSERT INTO checkout_history 
-        (equipment_id, equipment_name, equipment_serial, action, user_name, condition_on_return, timestamp)
-       VALUES ($1, $2, $3, 'check_in', $4, $5, NOW())`,
-      [equipment_id, equipment.name, equipment.serial_number, previousUser, condition]
+        (equipment_id, equipment_name, equipment_serial, action, user_name, department, condition_on_return, timestamp, quantity)
+       VALUES ($1, $2, $3, 'check_in', $4, $5, $6, NOW(), $7)`,
+      [active.equipment_id, equipment.name, equipment.serial_number, active.user_name, active.department, condition, checkInQuantity]
     );
 
     await client.query('COMMIT');
 
-    console.log(`✅ Equipment checked in: ${equipment.name} (condition: ${condition})`);
+    console.log(`✅ Equipment checked in: ${equipment.name} (${checkInQuantity}) with condition ${condition}`);
     
     res.status(200).json({
       message: "Equipment checked in successfully",
       equipment: updateResult.rows[0],
       checkin_info: {
-        returned_by: previousUser,
+        returned_by: active.user_name,
         condition,
+        quantity: checkInQuantity,
         timestamp: new Date().toISOString()
       }
     });
@@ -198,7 +287,8 @@ router.get("/history", async (req: Request, res: Response) => {
         user_name,
         department,
         condition_on_return,
-        timestamp
+        timestamp,
+        quantity
        FROM checkout_history
        ORDER BY timestamp DESC
        LIMIT $1`,
@@ -227,7 +317,8 @@ router.get("/history/equipment/:id", async (req: Request, res: Response) => {
         user_name,
         department,
         condition_on_return,
-        timestamp
+        timestamp,
+        quantity
        FROM checkout_history
        WHERE equipment_id = $1
        ORDER BY timestamp DESC`,
@@ -241,33 +332,57 @@ router.get("/history/equipment/:id", async (req: Request, res: Response) => {
   }
 });
 
-// ✅ GET current checkouts (equipment currently in use)
-router.get("/current", async (req: Request, res: Response) => {
+// ✅ GET current active checkouts (for Checked Out tab)
+router.get("/active", async (req: Request, res: Response) => {
   try {
     const result = await pool.query(
       `SELECT 
-        e.id,
+        ac.id,
+        ac.equipment_id,
+        e.name AS equipment_name,
         e.serial_number,
-        e.name,
-        e.model,
-        e.brand,
-        e.status,
-        e.condition,
-        e.assigned_to,
-        e.updated_at,
-        ec.name AS category,
-        l.name AS location
-       FROM equipment e
-       LEFT JOIN equipment_categories ec ON e.category_id = ec.id
-       LEFT JOIN locations l ON e.location_id = l.id
-       WHERE e.status = 'in_use'
-       ORDER BY e.updated_at DESC`
+        ac.user_name,
+        ac.department,
+        ac.quantity,
+        ac.checkout_timestamp
+       FROM active_checkouts ac
+       JOIN equipment e ON ac.equipment_id = e.id
+       ORDER BY ac.checkout_timestamp DESC`
     );
 
     res.json(result.rows);
   } catch (err) {
-    console.error("❌ Error fetching current checkouts:", err);
-    res.status(500).json({ error: "Failed to fetch current checkouts" });
+    console.error("❌ Error fetching active checkouts:", err);
+    res.status(500).json({ error: "Failed to fetch active checkouts" });
+  }
+});
+
+// ✅ GET active checkouts for specific equipment
+router.get("/active/:equipment_id", async (req: Request, res: Response) => {
+  try {
+    const { equipment_id } = req.params;
+
+    const result = await pool.query(
+      `SELECT 
+        ac.id,
+        ac.equipment_id,
+        e.name AS equipment_name,
+        e.serial_number,
+        ac.user_name,
+        ac.department,
+        ac.quantity,
+        ac.checkout_timestamp
+       FROM active_checkouts ac
+       JOIN equipment e ON ac.equipment_id = e.id
+       WHERE ac.equipment_id = $1
+       ORDER BY ac.checkout_timestamp DESC`,
+      [equipment_id]
+    );
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error("❌ Error fetching active checkouts for equipment:", err);
+    res.status(500).json({ error: "Failed to fetch active checkouts for equipment" });
   }
 });
 

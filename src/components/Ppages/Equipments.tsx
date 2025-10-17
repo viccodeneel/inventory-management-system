@@ -14,6 +14,7 @@ interface Equipment {
   category: string;
   location: string;
   quantity: number;
+  available_quantity: number;
   assigned_to: string | null;
 }
 
@@ -297,7 +298,7 @@ const closeSuccessModal = () => {
           equipment_category: selectedEquipment.category,
           equipment_serial_number: selectedEquipment.serial_number,
           equipment_location: selectedEquipment.location,
-          equipment_quantity: selectedEquipment.quantity || 1,
+          available_quantity: selectedEquipment.available_quantity || 0,
           request_date: new Date().toISOString(),
           expected_return_date: returnDate,
          // user_id: getCurrentUserId(), // Add when auth is ready
@@ -498,7 +499,7 @@ const formatRole = (role: string): string => {
                   </div>
                    <div className="detail-item">
                     <label>Current Quantity:</label>
-                    <span>{selectedEquipment.quantity}</span>
+                    <span>{selectedEquipment.available_quantity}</span>
                   </div>
 
                   <div className="detail-item">
@@ -748,7 +749,7 @@ const formatRole = (role: string): string => {
                     <th>Status</th>
                     <th>Condition</th>
                     <th>Location</th>
-                    <th>Quantity</th>
+                    <th>Available Quantity</th>
                     <th>Action</th>
                   </tr>
                 </thead>
@@ -768,7 +769,7 @@ const formatRole = (role: string): string => {
                         </td>
                         <td>{item.condition}</td>
                         <td>{item.location}</td>
-                         <td>{item.quantity}</td>
+                         <td>{item.available_quantity || 0}</td>
 
                         <td>
                           <button 

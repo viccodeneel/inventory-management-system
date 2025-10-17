@@ -26,6 +26,8 @@ interface Equipment {
   assigned_to: string | null;
   created_at: string;
   updated_at: string;
+  quantity: number; // total quantity
+  available_quantity: number; // available (what's left)
 }
 
 interface Activity {
@@ -36,6 +38,18 @@ interface Activity {
   user_name: string;
   department: string;
   timestamp: string;
+  quantity: number;
+}
+
+interface ActiveCheckout {
+  id: number;
+  equipment_id: number;
+  equipment_name: string;
+  serial_number: string;
+  user_name: string;
+  department: string;
+  quantity: number;
+  checkout_timestamp: string;
 }
 
 interface User {
@@ -55,7 +69,7 @@ const Check = () => {
   const [searchInput, setSearchInput] = useState("");
   const [loading, setLoading] = useState(true);
   
-  // Pagination
+  // Pagination for equipment
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
   
@@ -63,6 +77,7 @@ const Check = () => {
   const [showCheckOutModal, setShowCheckOutModal] = useState(false);
   const [showCheckInModal, setShowCheckInModal] = useState(false);
   const [selectedEquipment, setSelectedEquipment] = useState<Equipment | null>(null);
+  const [selectedActiveCheckout, setSelectedActiveCheckout] = useState<ActiveCheckout | null>(null);
   
   // Check out form
   const [userSearch, setUserSearch] = useState('');
@@ -74,10 +89,16 @@ const Check = () => {
   
   // Check in form
   const [checkInCondition, setCheckInCondition] = useState('good');
-   const [checkInQuantity, setCheckInQuantity] = useState(1);
+  const [checkInQuantity, setCheckInQuantity] = useState(1);
   
   // Recent activity
   const [recentActivity, setRecentActivity] = useState<Activity[]>([]);
+  
+  // Checked Out tab
+  const [activeTab, setActiveTab] = useState<'equipment' | 'checked_out'>('equipment');
+  const [activeCheckouts, setActiveCheckouts] = useState<ActiveCheckout[]>([]);
+  const [filteredActiveCheckouts, setFilteredActiveCheckouts] = useState<ActiveCheckout[]>([]);
+  const [activeSearchInput, setActiveSearchInput] = useState("");
 
   // Success Modal State
   const [successModal, setSuccessModal] = useState({
@@ -110,11 +131,12 @@ const Check = () => {
     });
   };
 
-  // Fetch equipment data
+  // Fetch data
   useEffect(() => {
     fetchEquipment();
     fetchRecentActivity();
     fetchApprovedUsers();
+    fetchActiveCheckouts();
   }, []);
 
   const fetchEquipment = async () => {
@@ -168,7 +190,20 @@ const Check = () => {
     }
   };
 
-  // Search functionality
+  const fetchActiveCheckouts = async () => {
+    try {
+      const response = await fetch('http://localhost:5000/api/checkout/active');
+      if (!response.ok) throw new Error('Failed to fetch active checkouts');
+      const data = await response.json();
+      setActiveCheckouts(data);
+      setFilteredActiveCheckouts(data);
+    } catch (error) {
+      console.error('Error fetching active checkouts:', error);
+      showSuccessModal('Error', 'Failed to load active checkouts', 'error');
+    }
+  };
+
+  // Search for equipment
   useEffect(() => {
     const filtered = equipmentList.filter(item => 
       item.serial_number.toLowerCase().includes(searchInput.toLowerCase()) || 
@@ -178,10 +213,21 @@ const Check = () => {
       (item.assigned_to && item.assigned_to.toLowerCase().includes(searchInput.toLowerCase()))
     );
     setFilteredEquipment(filtered);
-    setCurrentPage(1); // Reset to first page when searching
+    setCurrentPage(1);
   }, [searchInput, equipmentList]);
 
-  // Pagination calculations
+  // Search for active checkouts
+  useEffect(() => {
+    const filtered = activeCheckouts.filter(item => 
+      item.serial_number.toLowerCase().includes(activeSearchInput.toLowerCase()) ||
+      item.equipment_name.toLowerCase().includes(activeSearchInput.toLowerCase()) ||
+      item.user_name.toLowerCase().includes(activeSearchInput.toLowerCase()) ||
+      item.department?.toLowerCase().includes(activeSearchInput.toLowerCase())
+    );
+    setFilteredActiveCheckouts(filtered);
+  }, [activeSearchInput, activeCheckouts]);
+
+  // Pagination for equipment
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentItems = filteredEquipment.slice(indexOfFirstItem, indexOfLastItem);
@@ -206,7 +252,7 @@ const Check = () => {
       showSuccessModal('Error', 'Please select a user', 'error');
       return;
     }
-    if (checkOutQuantity < 1 || checkOutQuantity > selectedEquipment.quantity) {
+    if (checkOutQuantity < 1 || checkOutQuantity > selectedEquipment.available_quantity) {
       showSuccessModal('Error', 'Invalid quantity', 'error');
       return;
     }
@@ -225,6 +271,7 @@ const Check = () => {
       if (response.ok) {
         await fetchEquipment();
         await fetchRecentActivity();
+        await fetchActiveCheckouts();
         setShowCheckOutModal(false);
         showSuccessModal('Success', 'Equipment checked out successfully!');
       } else {
@@ -237,18 +284,47 @@ const Check = () => {
     }
   };
 
-  // Check in handler
-  const handleCheckInClick = (equipment: Equipment) => {
+  // Check in handlers
+  const handleCheckInClick = async (equipment: Equipment) => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/checkout/active/${equipment.id}`);
+      if (!response.ok) throw new Error('Failed to fetch active checkouts for equipment');
+      const data = await response.json();
+      if (data.length > 1) {
+        showSuccessModal('Info', 'Multiple assignments detected. Please use the Checked Out tab to check in.', 'error');
+        return;
+      } else if (data.length === 1) {
+        setSelectedActiveCheckout(data[0]);
+      } else {
+        showSuccessModal('Error', 'No active checkout found', 'error');
+        return;
+      }
+    } catch (error) {
+      console.error('Error fetching active checkouts:', error);
+      showSuccessModal('Error', 'Failed to prepare check-in', 'error');
+      return;
+    }
+
     setSelectedEquipment(equipment);
     setCheckInCondition('good');
     setCheckInQuantity(1);
     setShowCheckInModal(true);
   };
 
-  const handleCheckInSubmit = async () => {
-    if (!selectedEquipment) return;
+  const handleCheckInClickActive = (active: ActiveCheckout) => {
+    setSelectedActiveCheckout(active);
+    setCheckInCondition('good');
+    setCheckInQuantity(1);
+    setShowCheckInModal(true);
+  };
 
-    if (checkInQuantity < 1 || checkInQuantity > selectedEquipment.quantity) {
+  const handleCheckInSubmit = async () => {
+    if (!selectedActiveCheckout) {
+      showSuccessModal('Error', 'No active checkout selected', 'error');
+      return;
+    }
+
+    if (checkInQuantity < 1 || checkInQuantity > selectedActiveCheckout.quantity) {
       showSuccessModal('Error', 'Invalid quantity', 'error');
       return;
     }
@@ -258,7 +334,7 @@ const Check = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          equipment_id: selectedEquipment.id,
+          active_checkout_id: selectedActiveCheckout.id,
           condition: checkInCondition,
           quantity: checkInQuantity
         })
@@ -267,7 +343,9 @@ const Check = () => {
       if (response.ok) {
         await fetchEquipment();
         await fetchRecentActivity();
+        await fetchActiveCheckouts();
         setShowCheckInModal(false);
+        setSelectedActiveCheckout(null);
         showSuccessModal('Success', 'Equipment checked in successfully!');
       } else {
         const errorData = await response.json();
@@ -412,144 +490,223 @@ const Check = () => {
               <p>Manage equipment check-ins and check-outs</p>
             </div>
             
-            {/* Equipment Content */}
+            {/* Tab Navigation */}
             <div className="card">
               <div className="tab-navigation">
-                <button className="tab-button active">
+                <button 
+                  className={`tab-button ${activeTab === 'equipment' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('equipment')}
+                >
                   Equipment
+                </button>
+                <button 
+                  className={`tab-button ${activeTab === 'checked_out' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('checked_out')}
+                >
+                  Checked Out
                 </button>
               </div>
               
-              {/* Search Bar */}
-              <div className="search-actions-bar">
-                <div className="search-box">
-                  <i className="search-icon"></i>
-                  <input
-                    type="text"
-                    placeholder="Search by ID, name, brand, model, or assigned person"
-                    value={searchInput}
-                    onChange={(e) => setSearchInput(e.target.value)}
-                  />
-                </div>
-              </div>
-              
-              {/* Equipment Table */}
-              <div className="tab-content">
-                {loading ? (
-                  <div style={{ padding: '40px', textAlign: 'center' }}>Loading equipment...</div>
-                ) : (
-                  <>
-                    <div className="table-container">
-                      <table className="data-table">
-                        <thead>
-                          <tr>
-                            <th>Serial Number</th>
-                            <th>Equipment Name</th>
-                            <th>Brand/Model</th>
-                            <th>Status</th>
-                            <th>Condition</th>
-                            <th>Assigned To</th>
-                            <th>Quantity</th>
-                            <th>Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {currentItems.length === 0 ? (
+              {activeTab === 'equipment' ? (
+                <>
+                  {/* Search Bar for Equipment */}
+                  <div className="search-actions-bar">
+                    <div className="search-box">
+                      <i className="search-icon"></i>
+                      <input
+                        type="text"
+                        placeholder="Search by ID, name, brand, model, or assigned person"
+                        value={searchInput}
+                        onChange={(e) => setSearchInput(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  
+                  {/* Equipment Table */}
+                  <div className="tab-content">
+                    {loading ? (
+                      <div style={{ padding: '40px', textAlign: 'center' }}>Loading equipment...</div>
+                    ) : (
+                      <>
+                        <div className="table-container">
+                          <table className="data-table">
+                            <thead>
+                              <tr>
+                                <th>Serial Number</th>
+                                <th>Equipment Name</th>
+                                <th>Brand/Model</th>
+                                <th>Status</th>
+                                <th>Condition</th>
+                                <th>Assigned To</th>
+                                <th>Available Quantity</th>
+                                <th>Actions</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {currentItems.length === 0 ? (
+                                <tr>
+                                  <td colSpan={8} style={{ textAlign: 'center', padding: '40px' }}>
+                                    No equipment found
+                                  </td>
+                                </tr>
+                              ) : (
+                                currentItems.map(item => (
+                                  <tr key={item.id}>
+                                    <td className="id-cell">{item.serial_number}</td>
+                                    <td>{item.name}</td>
+                                    <td>{item.brand} {item.model}</td>
+                                    <td>
+                                      <span className={`status-badge ${
+                                        item.status === 'available' ? 'status-available' : 
+                                        item.status === 'in_use' ? 'status-checked-out' :
+                                        'status-inactive'
+                                      }`}>
+                                        {item.status === 'available' ? 'Available' :
+                                         item.status === 'in_use' ? 'Checked Out' :
+                                         item.status}
+                                      </span>
+                                    </td>
+                                    <td>
+                                      <span className={`status-badge ${
+                                        item.condition === 'good' || item.condition === 'excellent' ? 'status-active' : 
+                                        item.condition === 'fair' ? 'status-checked-out' :
+                                        'status-inactive'
+                                      }`}>
+                                        {item.condition}
+                                      </span>
+                                    </td>
+                                    <td>{item.assigned_to || "—"}</td>
+                                    <td>{item.available_quantity}</td>
+                                    
+                                    <td>
+                                      {item.status === 'available' && item.available_quantity > 0 ? (
+                                        <button 
+                                          className="action-button check-out"
+                                          onClick={() => handleCheckOutClick(item)}
+                                        >
+                                          Check Out
+                                        </button>
+                                      ) : item.status === 'in_use' && item.assigned_to !== 'Multiple' ? (
+                                        <button 
+                                          className="action-button check-in"
+                                          onClick={() => handleCheckInClick(item)}
+                                        >
+                                          Check In
+                                        </button>
+                                      ) : (
+                                        <span style={{ color: '#999' }}>—</span>
+                                      )}
+                                    </td>
+                                  </tr>
+                                ))
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                        
+                        {/* Pagination */}
+                        {totalPages > 1 && (
+                          <div className="pagination">
+                            <button
+                              className="pagination-btn"
+                              onClick={() => handlePageChange(currentPage - 1)}
+                              disabled={currentPage === 1}
+                            >
+                              Previous
+                            </button>
+                            
+                            <div className="pagination-numbers">
+                              {Array.from({ length: totalPages }, (_, i) => i + 1).map(pageNum => (
+                                <button
+                                  key={pageNum}
+                                  className={`pagination-number ${currentPage === pageNum ? 'active' : ''}`}
+                                  onClick={() => handlePageChange(pageNum)}
+                                >
+                                  {pageNum}
+                                </button>
+                              ))}
+                            </div>
+                            
+                            <button
+                              className="pagination-btn"
+                              onClick={() => handlePageChange(currentPage + 1)}
+                              disabled={currentPage === totalPages}
+                            >
+                              Next
+                            </button>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <>
+                  {/* Search Bar for Checked Out */}
+                  <div className="search-actions-bar">
+                    <div className="search-box">
+                      <i className="search-icon"></i>
+                      <input
+                        type="text"
+                        placeholder="Search by ID, equipment name, user, or department"
+                        value={activeSearchInput}
+                        onChange={(e) => setActiveSearchInput(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  
+                  {/* Checked Out Table */}
+                  <div className="tab-content">
+                    {loading ? (
+                      <div style={{ padding: '40px', textAlign: 'center' }}>Loading checked out items...</div>
+                    ) : (
+                      <div className="table-container">
+                        <table className="data-table">
+                          <thead>
                             <tr>
-                              <td colSpan={8} style={{ textAlign: 'center', padding: '40px' }}>
-                                No equipment found
-                              </td>
+                              <th>Serial Number</th>
+                              <th>Equipment Name</th>
+                              <th>User</th>
+                              <th>Department</th>
+                              <th>Quantity</th>
+                              <th>Checked Out</th>
+                              <th>Actions</th>
                             </tr>
-                          ) : (
-                            currentItems.map(item => (
-                              <tr key={item.id}>
-                                <td className="id-cell">{item.serial_number}</td>
-                                <td>{item.name}</td>
-                                <td>{item.brand} {item.model}</td>
-                                <td>
-                                  <span className={`status-badge ${
-                                    item.status === 'available' ? 'status-available' : 
-                                    item.status === 'in_use' ? 'status-checked-out' :
-                                    'status-inactive'
-                                  }`}>
-                                    {item.status === 'available' ? 'Available' :
-                                     item.status === 'in_use' ? 'Checked Out' :
-                                     item.status}
-                                  </span>
+                          </thead>
+                          <tbody>
+                            {filteredActiveCheckouts.length === 0 ? (
+                              <tr>
+                                <td colSpan={7} style={{ textAlign: 'center', padding: '40px' }}>
+                                  No checked out items
                                 </td>
-                                <td>
-                                  <span className={`status-badge ${
-                                    item.condition === 'good' || item.condition === 'excellent' ? 'status-active' : 
-                                    item.condition === 'fair' ? 'status-checked-out' :
-                                    'status-inactive'
-                                  }`}>
-                                    {item.condition}
-                                  </span>
-                                </td>
-                                <td>{item.assigned_to || "—"}</td>
-                                <td>{item.quantity || 1}</td>
-                                
-                                <td>
-                                  {item.status === 'available' ? (
-                                    <button 
-                                      className="action-button check-out"
-                                      onClick={() => handleCheckOutClick(item)}
-                                    >
-                                      Check Out
-                                    </button>
-                                  ) : item.status === 'in_use' ? (
+                              </tr>
+                            ) : (
+                              filteredActiveCheckouts.map(item => (
+                                <tr key={item.id}>
+                                  <td className="id-cell">{item.serial_number}</td>
+                                  <td>{item.equipment_name}</td>
+                                  <td>{item.user_name}</td>
+                                  <td>{item.department || '—'}</td>
+                                  <td>{item.quantity}</td>
+                                  <td>{formatTimestamp(item.checkout_timestamp)}</td>
+                                  <td>
                                     <button 
                                       className="action-button check-in"
-                                      onClick={() => handleCheckInClick(item)}
+                                      onClick={() => handleCheckInClickActive(item)}
                                     >
                                       Check In
                                     </button>
-                                  ) : (
-                                    <span style={{ color: '#999' }}>—</span>
-                                  )}
-                                </td>
-                              </tr>
-                            ))
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                    
-                    {/* Pagination */}
-                    {totalPages > 1 && (
-                      <div className="pagination">
-                        <button
-                          className="pagination-btn"
-                          onClick={() => handlePageChange(currentPage - 1)}
-                          disabled={currentPage === 1}
-                        >
-                          Previous
-                        </button>
-                        
-                        <div className="pagination-numbers">
-                          {Array.from({ length: totalPages }, (_, i) => i + 1).map(pageNum => (
-                            <button
-                              key={pageNum}
-                              className={`pagination-number ${currentPage === pageNum ? 'active' : ''}`}
-                              onClick={() => handlePageChange(pageNum)}
-                            >
-                              {pageNum}
-                            </button>
-                          ))}
-                        </div>
-                        
-                        <button
-                          className="pagination-btn"
-                          onClick={() => handlePageChange(currentPage + 1)}
-                          disabled={currentPage === totalPages}
-                        >
-                          Next
-                        </button>
+                                  </td>
+                                </tr>
+                              ))
+                            )}
+                          </tbody>
+                        </table>
                       </div>
                     )}
-                  </>
-                )}
-              </div>
+                  </div>
+                </>
+              )}
             </div>
             
             {/* Activity Log */}
@@ -572,7 +729,7 @@ const Check = () => {
                             {activity.action === 'check_in' ? 'Equipment Check In:' : 'Equipment Check Out:'}
                           </span>
                           {' '}{activity.user_name} {activity.action === 'check_in' ? 'returned' : 'took'}{' '}
-                          <span className="equipment-id">{activity.equipment_id}</span>
+                          {activity.quantity} of <span className="equipment-id">{activity.equipment_id}</span>
                           {activity.department && ` (${activity.department})`}
                         </p>
                         <p className="activity-time">{formatTimestamp(activity.timestamp)}</p>
@@ -656,13 +813,13 @@ const Check = () => {
                 )}
               </div>
 
-              {selectedEquipment && selectedEquipment.quantity > 1 && (
+              {selectedEquipment && selectedEquipment.available_quantity > 1 && (
                 <div className="form-group">
                   <label>Quantity *</label>
                   <input
                     type="number"
                     min="1"
-                    max={selectedEquipment.quantity}
+                    max={selectedEquipment.available_quantity}
                     value={checkOutQuantity}
                     onChange={(e) => setCheckOutQuantity(Number(e.target.value))}
                   />
@@ -687,10 +844,10 @@ const Check = () => {
             <div className="modal-coontent" onClick={(e) => e.stopPropagation()}>
               <h3>Check In Equipment</h3>
               <p className="modal-subtitle">
-                {selectedEquipment?.name} ({selectedEquipment?.serial_number})
+                {selectedActiveCheckout?.equipment_name || selectedEquipment?.name} ({selectedActiveCheckout?.serial_number || selectedEquipment?.serial_number})
               </p>
               <p className="modal-info">
-                Checked out to: <strong>{selectedEquipment?.assigned_to}</strong>
+                Checked out to: <strong>{selectedActiveCheckout?.user_name || selectedEquipment?.assigned_to}</strong>
               </p>
               
               <div className="form-group">
@@ -707,19 +864,18 @@ const Check = () => {
                 </select>
               </div>
 
-               {selectedEquipment && selectedEquipment.quantity > 1 && (
+              {selectedActiveCheckout && selectedActiveCheckout.quantity > 1 && (
                 <div className="form-group">
                   <label>Quantity *</label>
                   <input
                     type="number"
                     min="1"
-                    max={selectedEquipment.quantity}
+                    max={selectedActiveCheckout.quantity}
                     value={checkInQuantity}
                     onChange={(e) => setCheckInQuantity(Number(e.target.value))}
                   />
                 </div>
               )}
-              
               
               <div className="modal-actions">
                 <button className="btn-cancel" onClick={() => setShowCheckInModal(false)}>

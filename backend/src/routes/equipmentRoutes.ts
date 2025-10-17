@@ -40,6 +40,7 @@ router.get("/list", async (req: Request, res: Response) => {
         e.status,
         e.condition,
         e.quantity,
+        e.available_quantity,
         ec.name AS category,
         l.name AS location,
         e.assigned_to
@@ -69,7 +70,7 @@ router.post("/", async (req: Request, res: Response) => {
       location_id,
       status,
       condition,
-      quantity = 1  // New: Default to 1
+      quantity = 1
     } = req.body;
 
     if (!name || !category_id || !location_id) {
@@ -110,28 +111,37 @@ router.post("/", async (req: Request, res: Response) => {
       resolvedLocationId = locationResult.rows[0].id;
     }
 
-  const result = await client.query(
-  `INSERT INTO equipment 
-    (name, serial_number, model, brand, category_id, location_id, status, condition, quantity, created_at, updated_at)
-   VALUES 
-    ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
-   RETURNING *`,
-  [
-    name,
-    serial_number || null,
-    model || null,
-    brand || null,
-    resolvedCategoryId,
-    resolvedLocationId,
-    status || "available",
-    condition || "good",
-    quantity,
-  ]
-);
+    // Insert with available_quantity = quantity
+    const result = await client.query(
+      `INSERT INTO equipment 
+        (name, serial_number, model, brand, category_id, location_id, status, condition, quantity, available_quantity, created_at, updated_at)
+       VALUES 
+        ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9, NOW(), NOW())
+       RETURNING *`,
+      [
+        name,
+        serial_number || null,
+        model || null,
+        brand || null,
+        resolvedCategoryId,
+        resolvedLocationId,
+        status || "available",
+        condition || "good",
+        quantity,
+      ]
+    );
 
-await client.query("COMMIT");
-res.status(201).json(result.rows[0]);
+    await client.query("COMMIT");
+    res.status(201).json(result.rows[0]);
 
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error("❌ Error adding equipment:", err);
+    res.status(500).json({ error: "Failed to add equipment" });
+  } finally {
+    client.release();
+  }
+});
 
 // ✅ UPDATE equipment (PUT)
 router.put("/:id", async (req: Request, res: Response) => {
@@ -147,7 +157,7 @@ router.put("/:id", async (req: Request, res: Response) => {
       location_id,
       status,
       condition,
-      quantity = 1,  // New: Default to 1
+      quantity = 1,
       purchase_date,
       warranty_expiry,
       notes,
@@ -192,12 +202,13 @@ router.put("/:id", async (req: Request, res: Response) => {
       resolvedLocationId = locationResult.rows[0].id;
     }
 
+    // Update, but do not change available_quantity here (managed by checkouts)
     const result = await client.query(
       `UPDATE equipment 
        SET name = $1, serial_number = $2, model = $3, brand = $4, 
            category_id = $5, location_id = $6, status = $7, condition = $8,
            purchase_date = $9, warranty_expiry = $10, notes = $11, 
-           assigned_to = $12, quantity =$13, updated_at = NOW()
+           assigned_to = $12, quantity = $13, updated_at = NOW()
        WHERE id = $14
        RETURNING *`,
       [
@@ -221,6 +232,12 @@ router.put("/:id", async (req: Request, res: Response) => {
     if (result.rows.length === 0) {
       await client.query('ROLLBACK');
       return res.status(404).json({ error: "Equipment not found" });
+    }
+
+    // Optional: Validate available_quantity <= new quantity
+    if (result.rows[0].available_quantity > quantity) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: "New total quantity cannot be less than current available quantity" });
     }
 
     await client.query('COMMIT');
@@ -269,7 +286,7 @@ router.patch("/:id/status", async (req: Request, res: Response) => {
   const client = await pool.connect();
   try {
     const { id } = req.params;
-    const { status, category_id, location_id, assigned_to, department } = req.body;
+    const { status, category_id, location_id, assigned_to , quantity = 1 } = req.body;
 
     if (!status) {
       return res.status(400).json({ error: "Status is required" });
@@ -325,8 +342,7 @@ router.patch("/:id/status", async (req: Request, res: Response) => {
                    category_id = COALESCE($3, category_id), 
                    location_id = COALESCE($4, location_id),
                    assigned_to = COALESCE($5, assigned_to),
-                   department = COALESCE($6, department), 
-                   quantity = COALESCE($7, quantity),
+                   quantity = COALESCE($6, quantity),
                    updated_at = NOW()
                WHERE id = $2
                RETURNING *`;
@@ -336,7 +352,6 @@ router.patch("/:id/status", async (req: Request, res: Response) => {
         resolvedCategoryId || null,
         resolvedLocationId || null,
         assigned_to || null,
-        department || null,
         req.body.quantity || 1
       ];
     }
@@ -351,13 +366,13 @@ router.patch("/:id/status", async (req: Request, res: Response) => {
     // Log activity to checkouts table
     if (status === 'in_use' || status === 'available') {
       await client.query(
-        `INSERT INTO checkouts (equipment_id, action, user_name, department, timestamp)
-         VALUES ($1, $2, $3, $4, NOW())`,
+        `INSERT INTO checkouts (equipment_id, action, user_name, timestamp, quantity)
+         VALUES ($1, $2, $3, NOW(), $4)`,
         [
           id,
           status === 'in_use' ? 'check_out' : 'check_in',
           assigned_to || 'Unknown',
-          department || null
+          quantity
         ]
       );
     }
@@ -397,6 +412,7 @@ router.get("/:id", async (req: Request, res: Response) => {
         l.name AS location,
         e.assigned_to,
         e.quantity,
+        e.available_quantity,
         e.created_at,
         e.updated_at
       FROM equipment e
@@ -417,7 +433,7 @@ router.get("/:id", async (req: Request, res: Response) => {
 });
 
 // ✅ GET recent checkouts
-router.get("/checkouts", async (req: Request, res: Response) => {
+router.get("/checkouts/recent", async (req: Request, res: Response) => {
   try {
     const limit = parseInt(req.query.limit as string) || 10;
     const result = await pool.query(
@@ -425,11 +441,12 @@ router.get("/checkouts", async (req: Request, res: Response) => {
          c.id,
          c.equipment_id,
          e.name AS equipment_name,
-         e.serial_number AS equipment_id,
+         e.serial_number AS equipment_serial,
          c.action,
          c.user_name,
          c.department,
-         c.timestamp
+         c.timestamp,
+         c.quantity
        FROM checkouts c
        JOIN equipment e ON c.equipment_id = e.id
        ORDER BY c.timestamp DESC
@@ -437,12 +454,6 @@ router.get("/checkouts", async (req: Request, res: Response) => {
       [limit]
     );
     res.json(result.rows);
-  } catch (err) {
-    console.error("❌ Error fetching checkouts:", err);
-    res.status(500).json({ error: "Failed to fetch checkouts" });
-  }
-});
-
   } catch (err) {
     console.error("❌ Error fetching checkouts:", err);
     res.status(500).json({ error: "Failed to fetch checkouts" });
