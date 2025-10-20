@@ -119,7 +119,7 @@ const createEquipmentRequestsRoutes = () => {
           pr.equipment_category,
           pr.equipment_serial_number,
           pr.equipment_location,
-          pr.equipment_quantity,
+          pr.equipment_quantity
         FROM pending_requests pr
         WHERE pr.status = 'pending'
         ORDER BY pr.created_at DESC
@@ -144,7 +144,7 @@ const createEquipmentRequestsRoutes = () => {
           ar.equipment_category,
           ar.equipment_serial_number,
           ar.equipment_location,
-          ar.equipment_quantity,  
+          ar.equipment_quantity  
         FROM approved_requests ar
         ORDER BY ar.approved_date DESC
       `);
@@ -168,7 +168,7 @@ const createEquipmentRequestsRoutes = () => {
           ar.equipment_category,
           ar.equipment_serial_number,
           ar.equipment_location,
-          ar.equipment_quantity,  
+          ar.equipment_quantity  
         FROM approved_requests ar
         WHERE ar.status = 'returned'
         ORDER BY ar.actual_return_date DESC
@@ -201,10 +201,27 @@ const createEquipmentRequestsRoutes = () => {
         notes,
       } = req.body;
 
+      // Validate required fields
       if (!equipment_id || !expected_return_date || !user_name) {
         return res.status(400).json({
           success: false,
           message: "Equipment ID, expected return date, and user name are required",
+        } as ApiResponse);
+      }
+
+      // Validate notes (reason) is provided
+      if (!notes || notes.trim() === '') {
+        return res.status(400).json({
+          success: false,
+          message: "Request reason is required",
+        } as ApiResponse);
+      }
+
+      // Validate quantity
+      if (!equipment_quantity || equipment_quantity < 1) {
+        return res.status(400).json({
+          success: false,
+          message: "Valid quantity is required (minimum 1)",
         } as ApiResponse);
       }
 
@@ -221,6 +238,15 @@ const createEquipmentRequestsRoutes = () => {
         } as ApiResponse);
       }
 
+      // Check if requested quantity is available
+      const availableEquipment = equipment.rows[0];
+      if (equipment_quantity > availableEquipment.available_quantity) {
+        return res.status(400).json({
+          success: false,
+          message: `Only ${availableEquipment.available_quantity} units available`,
+        } as ApiResponse);
+      }
+
       // Insert request into pending_requests table
       const result = await pool.query(
         `
@@ -229,7 +255,7 @@ const createEquipmentRequestsRoutes = () => {
           equipment_category, equipment_serial_number, equipment_location,
           equipment_quantity,
           user_name, request_date, expected_return_date, status, notes
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
         RETURNING *
       `,
         [
@@ -484,7 +510,7 @@ const createEquipmentRequestsRoutes = () => {
             )
             VALUES (
               $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
-              $11, NOW(), $12, $13, $14, 'approved', $15, NOW()
+              $11, $12, NOW(), $13, $14, $15, 'approved', $16, NOW()
             )
             RETURNING *
             `,
@@ -602,12 +628,13 @@ const createEquipmentRequestsRoutes = () => {
               user_id,
               user_name,
               requested_date,
+              expected_return_date,
               rejection_reason,
               rejected_by,
               rejected_date,
               created_at
             ) VALUES (
-              $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW()
+              $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW(), NOW()
             )
             `,
             [
@@ -623,9 +650,9 @@ const createEquipmentRequestsRoutes = () => {
               rejectedRequest.user_id,
               rejectedRequest.user_name,
               rejectedRequest.request_date,
+              rejectedRequest.expected_return_date,
               rejection_reason,
-              rejected_by,
-              new Date().toISOString()
+              rejected_by
             ]
           );
 
@@ -756,7 +783,7 @@ const createEquipmentRequestsRoutes = () => {
               return_condition,
               return_notes,
               created_at
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
             `,
             [
               returnedRequest.id,

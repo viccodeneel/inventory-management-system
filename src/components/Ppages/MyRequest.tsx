@@ -13,6 +13,7 @@ interface EquipmentRequest {
   expected_return_date: string;
   status: 'pending' | 'approved' | 'in_use' | 'rejected' | 'returned' | 'canceled';
   notes?: string;
+  equipment_quantity: number;
   approval_code?: string;
   rejection_reason?: string;
   return_notes?: string;
@@ -28,6 +29,9 @@ const MyRequests = () => {
   const [loading, setLoading] = useState(true);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<EquipmentRequest | null>(null);
+
+  // API Base URL
+  const API_BASE_URL = 'http://localhost:5000/api';
 
   // Profile states
   const [currentUser, setCurrentUser] = useState<{
@@ -66,16 +70,16 @@ const MyRequests = () => {
         };
         
         setCurrentUser(user);
-        console.log('Current user set:', user.name);
+        console.log('✅ Current user set:', user.name);
         return user;
       } catch (decodeError) {
-        console.error('Token decode error:', decodeError);
+        console.error('❌ Token decode error:', decodeError);
         localStorage.clear();
         navigate('/');
         return null;
       }
     } catch (error) {
-      console.error('Error in fetchCurrentUser:', error);
+      console.error('❌ Error in fetchCurrentUser:', error);
       navigate('/');
       return null;
     }
@@ -114,45 +118,71 @@ const closeSuccessModal = () => {
   // Fetch user requests from backend
   const fetchUserRequests = async (userName: string) => {
     try {
-      const API_BASE_URL = 'http://localhost:5000/api';
+      console.log('📥 Fetching requests for user:', userName);
       
       // Fetch pending requests
+      console.log('Fetching pending:', `${API_BASE_URL}/equipment-requests/user/${encodeURIComponent(userName)}/pending`);
       const pendingResponse = await fetch(`${API_BASE_URL}/equipment-requests/user/${encodeURIComponent(userName)}/pending`);
-      if (!pendingResponse.ok) throw new Error('Failed to fetch pending requests');
-      const pendingData = await pendingResponse.json();
+      console.log('Pending response:', pendingResponse.status);
+      if (!pendingResponse.ok) {
+        console.error('Failed to fetch pending requests:', pendingResponse.status);
+      }
+      const pendingData = pendingResponse.ok ? await pendingResponse.json() : { data: [] };
+      console.log('Pending data:', pendingData);
       
       // Fetch approved requests (includes approved and in_use)
+      console.log('Fetching approved:', `${API_BASE_URL}/equipment-requests/user/${encodeURIComponent(userName)}/approved`);
       const approvedResponse = await fetch(`${API_BASE_URL}/equipment-requests/user/${encodeURIComponent(userName)}/approved`);
-      if (!approvedResponse.ok) throw new Error('Failed to fetch approved requests');
-      const approvedData = await approvedResponse.json();
+      console.log('Approved response:', approvedResponse.status);
+      if (!approvedResponse.ok) {
+        console.error('Failed to fetch approved requests:', approvedResponse.status);
+      }
+      const approvedData = approvedResponse.ok ? await approvedResponse.json() : { data: [] };
+      console.log('Approved data:', approvedData);
       
       // Fetch rejected requests
+      console.log('Fetching rejected:', `${API_BASE_URL}/equipment-requests/user/${encodeURIComponent(userName)}/rejected`);
       const rejectedResponse = await fetch(`${API_BASE_URL}/equipment-requests/user/${encodeURIComponent(userName)}/rejected`);
-      if (!rejectedResponse.ok) throw new Error('Failed to fetch rejected requests');
-      const rejectedData = await rejectedResponse.json();
+      console.log('Rejected response:', rejectedResponse.status);
+      if (!rejectedResponse.ok) {
+        console.error('Failed to fetch rejected requests:', rejectedResponse.status);
+      }
+      const rejectedData = rejectedResponse.ok ? await rejectedResponse.json() : { data: [] };
+      console.log('Rejected data:', rejectedData);
       
       // Fetch returned requests (completed)
+      console.log('Fetching returned:', `${API_BASE_URL}/equipment-requests/user/${encodeURIComponent(userName)}/returned`);
       const returnedResponse = await fetch(`${API_BASE_URL}/equipment-requests/user/${encodeURIComponent(userName)}/returned`);
-      if (!returnedResponse.ok) throw new Error('Failed to fetch returned requests');
-      const returnedData = await returnedResponse.json();
+      console.log('Returned response:', returnedResponse.status);
+      if (!returnedResponse.ok) {
+        console.error('Failed to fetch returned requests:', returnedResponse.status);
+      }
+      const returnedData = returnedResponse.ok ? await returnedResponse.json() : { data: [] };
+      console.log('Returned data:', returnedData);
       
       // Combine pending and approved for current requests
-      setCurrentRequests([
+      const current = [
         ...(pendingData.data || []),
         ...(approvedData.data || [])
       ].map(req => ({
         ...req,
         status: req.status === 'returned' ? 'completed' : req.status
-      })));
+      }));
+      
+      console.log('✅ Current requests:', current.length);
+      setCurrentRequests(current);
       
       // Combine rejected and returned for history
-      setRequestHistory([
+      const history = [
         ...(rejectedData.data || []),
         ...(returnedData.data || [])
       ].map(req => ({
         ...req,
         status: req.status === 'returned' ? 'completed' : req.status
-      })));
+      }));
+      
+      console.log('✅ History requests:', history.length);
+      setRequestHistory(history);
       
       // Collect unique categories
       const allRequests = [
@@ -162,10 +192,12 @@ const closeSuccessModal = () => {
         ...(returnedData.data || [])
       ];
       const uniqueCategories = [...new Set(allRequests.map(req => req.equipment_category).filter(Boolean))];
+      console.log('✅ Categories:', uniqueCategories);
       setCategories(uniqueCategories);
       
     } catch (error) {
-      console.error('Error fetching requests:', error);
+      console.error('❌ Error fetching requests:', error);
+      showSuccessModal('Error', 'Failed to fetch requests. Please try again.', 'error');
     }
   };
 
@@ -231,43 +263,43 @@ const closeSuccessModal = () => {
   };
 
   const handleCancelRequest = async (requestId: number) => {
-  // Ask for confirmation first
-  const confirmed = await showConfirmationModal(
-    'Cancel Request',
-    'Are you sure you want to cancel this request?'
-  );
-  if (!confirmed) return;
+    // Ask for confirmation first
+    const confirmed = await showConfirmationModal(
+      'Cancel Request',
+      'Are you sure you want to cancel this request?'
+    );
+    if (!confirmed) return;
 
-  try {
-    const API_BASE_URL = 'http://localhost:5000/api';
+    try {
+      console.log('🗑️ Canceling request:', requestId);
 
-    const response = await fetch(`${API_BASE_URL}/equipment-requests/${requestId}/cancel`, {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-    });
+      const response = await fetch(`${API_BASE_URL}/equipment-requests/${requestId}/cancel`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+      });
 
-    if (!response.ok) {
-      throw new Error('Failed to cancel request');
-    }
+      console.log('Cancel response:', response.status);
 
-    const result = await response.json();
-
-    if (result.success) {
-      await showSuccessModal('Request Canceled', 'Request canceled successfully.');
-      if (currentUser) {
-        await fetchUserRequests(currentUser.name);
+      if (!response.ok) {
+        throw new Error('Failed to cancel request');
       }
-    } else {
-      await showSuccessModal(
-        'Request Canceled',
-        result.message || 'Failed to cancel request.'
-      );
+
+      const result = await response.json();
+      console.log('Cancel result:', result);
+
+      if (result.success) {
+        showSuccessModal('Success', 'Request canceled successfully.');
+        if (currentUser) {
+          await fetchUserRequests(currentUser.name);
+        }
+      } else {
+        showSuccessModal('Error', result.message || 'Failed to cancel request.', 'error');
+      }
+    } catch (error) {
+      console.error('❌ Error canceling request:', error);
+      showSuccessModal('Error', 'Error canceling request.', 'error');
     }
-  } catch (error) {
-    console.error('Error canceling request:', error);
-    await showSuccessModal('Error', 'Error canceling request.');
-  }
-};
+  };
 
 
   const getStatusClass = (status: string) => {
@@ -281,6 +313,7 @@ const closeSuccessModal = () => {
       case 'denied':
         return 'status-denied';
       case 'completed':
+      case 'returned':
         return 'status-completed';
       case 'canceled':
         return 'status-canceled';
@@ -352,6 +385,10 @@ const closeSuccessModal = () => {
                     <span className="ddetail-label">Expected Return:</span>
                     <span className="ddetail-value">{new Date(selectedRequest.expected_return_date).toLocaleDateString()}</span>
                   </div>
+                  <div className="ddetail-item">
+                    <span className="ddetail-label">Quantity:</span>
+                    <span className="ddetail-value">{selectedRequest.equipment_quantity}</span>
+                  </div>
                 </div>
               </div>
 
@@ -375,7 +412,7 @@ const closeSuccessModal = () => {
 
               {selectedRequest.notes && (
                 <div className="ddetail-section">
-                  <h3>Notes</h3>
+                  <h3>Request Reason</h3>
                   <p className="ddetail-notes">{selectedRequest.notes}</p>
                 </div>
               )}
@@ -383,14 +420,22 @@ const closeSuccessModal = () => {
               {selectedRequest.approval_code && (
                 <div className="ddetail-section">
                   <h3>Approval Code</h3>
-                  <p className="ddetail-approval-code">{selectedRequest.approval_code}</p>
+                  <p className="ddetail-approval-code" style={{ 
+                    fontSize: '24px', 
+                    fontWeight: 'bold', 
+                    color: '#10b981',
+                    letterSpacing: '2px'
+                  }}>
+                    {selectedRequest.approval_code}
+                  </p>
+                  <small style={{ color: '#666' }}>Present this code when collecting the equipment</small>
                 </div>
               )}
 
               {selectedRequest.rejection_reason && (
                 <div className="ddetail-section">
                   <h3>Rejection Reason</h3>
-                  <p className="ddetail-rejection">{selectedRequest.rejection_reason}</p>
+                  <p className="ddetail-rejection" style={{ color: '#ef4444' }}>{selectedRequest.rejection_reason}</p>
                 </div>
               )}
 
@@ -489,13 +534,13 @@ const closeSuccessModal = () => {
             className={`tabb ${activeTab === 'current' ? 'active' : ''}`} 
             onClick={() => setActiveTab('current')}
           >
-            Current Requests
+            Current Requests ({filteredCurrentRequests.length})
           </button>
           <button 
             className={`tabb ${activeTab === 'history' ? 'active' : ''}`} 
             onClick={() => setActiveTab('history')}
           >
-            Request History
+            Request History ({filteredHistoryRequests.length})
           </button>
         </div>
 
@@ -529,6 +574,7 @@ const closeSuccessModal = () => {
                     <th>Category</th>
                     <th>Request Date</th>
                     <th>Usage Period</th>
+                    <th>Quantity</th>
                     <th>Status</th>
                     <th>Approval Code</th>
                     <th>Actions</th>
@@ -552,6 +598,7 @@ const closeSuccessModal = () => {
                             ? `${new Date(request.request_date).toLocaleDateString()} to ${new Date(request.expected_return_date).toLocaleDateString()}`
                             : 'N/A'}
                         </td>
+                        <td>{request.equipment_quantity || 'N/A'}</td>
                         <td>
                           <span className={`state-indicator ${getStatusClass(request.status)}`}>
                             {request.status === 'in_use' ? 'In Use' : request.status.charAt(0).toUpperCase() + request.status.slice(1)}
@@ -560,7 +607,7 @@ const closeSuccessModal = () => {
                         <td>
                           {(request.status === 'approved' || request.status === 'in_use')
                             ? request.approval_code || 'N/A'
-                            : request.notes || 'N/A'}
+                            : request.status === 'pending' ? 'Awaiting Approval' : 'N/A'}
                         </td>
                         <td>
                           <div className="action-buttons">
@@ -586,7 +633,7 @@ const closeSuccessModal = () => {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={8} style={{ textAlign: 'center', padding: '40px' }}>
+                      <td colSpan={9} style={{ textAlign: 'center', padding: '40px' }}>
                         <div className="no-data-icon">📭</div>
                         <div style={{ fontSize: '16px', fontWeight: '500', marginTop: '10px' }}>No current requests found</div>
                         <div className="no-data-subtext" style={{ fontSize: '14px', color: '#888', marginTop: '5px' }}>
@@ -631,6 +678,7 @@ const closeSuccessModal = () => {
                     <th>Category</th>
                     <th>Request Date</th>
                     <th>Usage Period</th>
+                    <th>Quantity</th>
                     <th>Status</th>
                     <th>Notes</th>
                     <th>Actions</th>
@@ -654,16 +702,19 @@ const closeSuccessModal = () => {
                             ? `${new Date(request.request_date).toLocaleDateString()} to ${new Date(request.expected_return_date).toLocaleDateString()}`
                             : 'N/A'}
                         </td>
+                        <td>{request.equipment_quantity || 'N/A'}</td>
                         <td>
                           <span className={`state-indicator ${getStatusClass(request.status)}`}>
-                            {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
+                            {request.status === 'returned' || request.status === 'completed' 
+                              ? 'Completed' 
+                              : request.status.charAt(0).toUpperCase() + request.status.slice(1)}
                           </span>
                         </td>
                         <td>
                           {request.status === 'rejected'
                             ? request.rejection_reason || 'N/A'
-                            : request.status === 'returned'
-                            ? request.return_notes || 'Returned'
+                            : request.status === 'returned' || request.status === 'completed'
+                            ? request.return_notes || 'Completed'
                             : request.notes || 'N/A'}
                         </td>
                         <td>
@@ -691,7 +742,7 @@ const closeSuccessModal = () => {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={8} style={{ textAlign: 'center', padding: '40px' }}>
+                      <td colSpan={9} style={{ textAlign: 'center', padding: '40px' }}>
                         <div className="no-data-icon">📭</div>
                         <div style={{ fontSize: '16px', fontWeight: '500', marginTop: '10px' }}>No request history found</div>
                         <div className="no-data-subtext" style={{ fontSize: '14px', color: '#888', marginTop: '5px' }}>

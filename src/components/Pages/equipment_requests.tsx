@@ -33,7 +33,7 @@ interface EquipmentRequest {
   priority?: string;
   purpose?: string;
   notes?: string;
-  quantity: number;
+  equipment_quantity: number; 
   approval_code?: string;
   approved_date?: string;
   approved_by?: string;
@@ -946,7 +946,7 @@ const showSuccessModal = (title: string, message: string, type: 'success' | 'err
                               <div className="equipment-serial">{request.equipment_serial_number}</div>
                             </div>
                           </td>
-                          <td>{request.quantity}</td>
+                          <td>{request.equipment_quantity}</td>
                           <td>{new Date(request.request_date).toLocaleDateString()}</td>
                           <td>{new Date(request.expected_return_date).toLocaleDateString()}</td>
                           {(activeTab === 'approved' || activeTab === 'in_use') && (
@@ -1101,7 +1101,7 @@ const showSuccessModal = (title: string, message: string, type: 'success' | 'err
                 <p><strong>Request ID:</strong> REQ-{selectedRequest.id.toString().padStart(4, '0')}</p>
                 <p><strong>User:</strong> {selectedRequest.user_name}</p>
                 <p><strong>Equipment:</strong> {selectedRequest.equipment_name}</p>
-                <p><strong>Quantity:</strong> {selectedRequest.quantity}</p>
+                <p><strong>Quantity:</strong> {selectedRequest.equipment_quantity}</p>  
                 <p><strong>Serial Number:</strong> {selectedRequest.equipment_serial_number}</p>
                 <p><strong>Return Date:</strong> {new Date(selectedRequest.expected_return_date).toLocaleDateString()}</p>
                 {selectedRequest.purpose && (

@@ -37,7 +37,7 @@ app.use("/api/equipment", equipmentRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/locations", locationRoutes);
 app.use("/api/users", userRoutes);
-app.use("/api/equipment/requests", createEquipmentRequestsRoutes());
+app.use("/api", createEquipmentRequestsRoutes());
 app.use("/api/checkout", checkoutRoutes);
 app.use("/api/users/admin", userAdminRoutes);
 

@@ -41,6 +41,8 @@ const Equipment = () => {
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
   const [selectedEquipment, setSelectedEquipment] = useState<Equipment | null>(null);
   const [returnDate, setReturnDate] = useState('');
+  const [requestQuantity, setRequestQuantity] = useState(1);
+  const [requestReason, setRequestReason] = useState('');
   
   // Data states
   const [equipmentList, setEquipmentList] = useState<Equipment[]>([]);
@@ -179,6 +181,8 @@ const closeSuccessModal = () => {
   const openRequestModal = (equipment: Equipment) => {
     setSelectedEquipment(equipment);
     setReturnDate(''); // Reset return date
+    setRequestQuantity(1); // Reset quantity
+    setRequestReason(''); // Reset reason
     setIsRequestModalOpen(true);
   };
 
@@ -187,6 +191,8 @@ const closeSuccessModal = () => {
     setIsRequestModalOpen(false);
     setSelectedEquipment(null);
     setReturnDate('');
+    setRequestQuantity(1);
+    setRequestReason('');
   };
 
   // Filter equipment based on category and search term
@@ -273,42 +279,71 @@ const closeSuccessModal = () => {
 
   // Handle equipment request submission
   const handleSubmitRequest = async () => {
-    if (!selectedEquipment || !returnDate || submitting) return;
+    if (!selectedEquipment || !returnDate || !requestReason.trim() || submitting) return;
     
     // Validate return date
     if (new Date(returnDate) <= new Date()) {
-      alert('Return date must be in the future');
+      showSuccessModal('Invalid Date', 'Return date must be in the future', 'error');
+      return;
+    }
+
+    // Validate quantity
+    if (requestQuantity < 1 || requestQuantity > (selectedEquipment.available_quantity || 0)) {
+      showSuccessModal('Invalid Quantity', `Quantity must be between 1 and ${selectedEquipment.available_quantity}`, 'error');
+      return;
+    }
+
+    // Validate reason
+    if (!requestReason.trim()) {
+      showSuccessModal('Reason Required', 'Please provide a reason for your request', 'error');
       return;
     }
     
     setSubmitting(true);
     try {
+      const requestBody = {
+        equipment_id: selectedEquipment.id,
+        equipment_name: selectedEquipment.name,
+        equipment_model: selectedEquipment.model,
+        equipment_brand: selectedEquipment.brand,
+        equipment_category: selectedEquipment.category,
+        equipment_serial_number: selectedEquipment.serial_number,
+        equipment_location: selectedEquipment.location,
+        equipment_quantity: requestQuantity,
+        request_date: new Date().toISOString(),
+        expected_return_date: returnDate,
+        user_name: currentUser ? currentUser.name : 'Unknown User',
+        status: 'pending',
+        notes: requestReason
+      };
+
+      console.log('📤 Submitting request to:', `${API_BASE_URL}/pending-requests`);
+      console.log('📦 Request body:', requestBody);
+
       const response = await fetch(`${API_BASE_URL}/pending-requests`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          // Add authorization header when auth is implemented
-          // 'Authorization': `Bearer ${getAuthToken()}`
         },
-        body: JSON.stringify({
-          equipment_id: selectedEquipment.id,
-          equipment_name: selectedEquipment.name,
-          equipment_model: selectedEquipment.model,
-          equipment_brand: selectedEquipment.brand,
-          equipment_category: selectedEquipment.category,
-          equipment_serial_number: selectedEquipment.serial_number,
-          equipment_location: selectedEquipment.location,
-          available_quantity: selectedEquipment.available_quantity || 0,
-          request_date: new Date().toISOString(),
-          expected_return_date: returnDate,
-         // user_id: getCurrentUserId(), // Add when auth is ready
-          user_name: currentUser ? currentUser.name : 'Loading...', // Replace with actual user name from auth
-          status: 'pending'
-        }),
+        body: JSON.stringify(requestBody),
       });
 
+      console.log('📥 Response status:', response.status);
+      console.log('📥 Response headers:', response.headers.get('content-type'));
+
+      // Check if response is JSON
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text();
+        console.error('❌ Non-JSON response:', text);
+        throw new Error('Server returned an invalid response. Please check if the API endpoint exists.');
+      }
+
+      const data = await response.json();
+      console.log('📥 Response data:', data);
+
       if (!response.ok) {
-        throw new Error('Failed to submit request');
+        throw new Error(data.message || 'Failed to submit request');
       }
 
       showSuccessModal('Success', 'Equipment request submitted successfully! Your request is now pending approval.');
@@ -319,9 +354,9 @@ const closeSuccessModal = () => {
         fetchEquipmentList(),
         fetchEquipmentStats()
       ]);
-    } catch (error) {
-      console.error('Error requesting equipment:', error);
-      showSuccessModal('Error', 'Failed to submit request. Please try again.');
+    } catch (error: any) {
+      console.error('❌ Error requesting equipment:', error);
+      showSuccessModal('Error', error.message || 'Failed to submit request. Please try again.', 'error');
     } finally {
       setSubmitting(false);
     }
@@ -396,7 +431,9 @@ useEffect(() => {
     setLoading(true);
     try {
       await Promise.all([
-        fetchCurrentUser(), // Add this line
+        fetchCurrentUser(),
+        fetchEquipmentStats(),
+        fetchEquipmentList()
       ]);
     } catch (error) {
       console.error('Error initializing data:', error);
@@ -482,8 +519,8 @@ const formatRole = (role: string): string => {
                     <span>{selectedEquipment.location}</span>
                   </div>
                    <div className="detail-item">
-                    <label>Current Quantity:</label>
-                    <span>{selectedEquipment.available_quantity}</span>
+                    <label>Available Quantity:</label>
+                    <span>{selectedEquipment.available_quantity || 0}</span>
                   </div>
 
                   <div className="detail-item">
@@ -515,24 +552,55 @@ const formatRole = (role: string): string => {
                     />
                   </div>
                
-      <div className="detail-item">
+                  <div className="detail-item">
                     <label>Equipment Quantity: <span className="required">*</span></label>
                     <input
                       type="number"
-                      value={selectedEquipment?.quantity ?? 1}
+                      value={requestQuantity}
                       onChange={(e) => {
                         const newQuantity = Number(e.target.value);
-                        setSelectedEquipment(prev => prev ? { ...prev, quantity: newQuantity } : null);
+                        const maxQuantity = selectedEquipment?.available_quantity || 0;
+                        if (newQuantity >= 1 && newQuantity <= maxQuantity) {
+                          setRequestQuantity(newQuantity);
+                        }
                       }}
                       min={1}
-                      className="number"
+                      max={selectedEquipment?.available_quantity || 0}
+                      className="number-input"
                       required
                     />
+                    <small style={{ display: 'block', marginTop: '4px', color: '#666' }}>
+                      Max available: {selectedEquipment?.available_quantity || 0}
+                    </small>
                   </div>
 
                   <div className="detail-item full-width">
                     <label>Requested By:</label>
                    <h4> {currentUser ? currentUser.name : 'Loading...'}  ({currentUser ? formatRole(currentUser.role) : 'Loading...'})</h4>
+                  </div>
+
+                  <div className="detail-item full-width">
+                    <label>Reason for Request: <span className="required">*</span></label>
+                    <textarea
+                      value={requestReason}
+                      onChange={(e) => setRequestReason(e.target.value)}
+                      placeholder="Please provide a reason for requesting this equipment..."
+                      className="reason-textarea"
+                      rows={4}
+                      required
+                      style={{
+                        width: '100%',
+                        padding: '10px',
+                        border: '1px solid #ddd',
+                        borderRadius: '4px',
+                        fontFamily: 'inherit',
+                        fontSize: '14px',
+                        resize: 'vertical'
+                      }}
+                    />
+                    <small style={{ display: 'block', marginTop: '4px', color: '#666' }}>
+                      {requestReason.length}/500 characters
+                    </small>
                   </div>
                 </div>
               </div>
@@ -559,7 +627,7 @@ const formatRole = (role: string): string => {
               <button 
                 className="modal-btn primary" 
                 onClick={handleSubmitRequest}
-                disabled={!returnDate || submitting}
+                disabled={!returnDate || !requestReason.trim() || submitting}
               >
                 {submitting ? 'Submitting Request...' : 'Submit Request'}
               </button>
@@ -768,7 +836,7 @@ const formatRole = (role: string): string => {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={9} style={{ textAlign: 'center', padding: '20px' }}>
+                      <td colSpan={10} style={{ textAlign: 'center', padding: '20px' }}>
                         {searchTerm || categoryFilter !== 'All Categories' ? 
                           'No equipment matches your search criteria' : 
                           'No equipment available'}
