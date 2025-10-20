@@ -400,22 +400,6 @@ const formatRole = (role: string): string => {
   };
 
   const requestStats = getRequestStats();
-
-  if (loading) {
-    return (
-      <div className="loading-overlay">
-        <div className="loading-container">
-          <div className="loading-spinner">
-            <div className="spinner-ring"></div>
-            <div className="spinner-ring"></div>
-            <div className="spinner-ring"></div>
-          </div>
-          <div className="loading-text">Loading dashboard data...</div>
-          <div className="loading-subtext">Please wait while we fetch your equipment information</div>
-        </div>
-      </div>
-    );
-  }
   
   return (
     <div className="app-container">

@@ -670,22 +670,6 @@ const handleAddEquipment = async (e: React.FormEvent) => {
     window.URL.revokeObjectURL(url);
   };
 
-  if (loading) {
-    return (
-     <div className="loading-overlay">
-        <div className="loading-container">
-          <div className="loading-spinner">
-            <div className="spinner-ring"></div>
-            <div className="spinner-ring"></div>
-            <div className="spinner-ring"></div>
-          </div>
-          <div className="loading-text">Loading equipment requests...</div>
-          <div className="loading-subtext">Please wait while we fetch request data</div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="dashboard-containerr">
       {/* Sidebar Navigation */}

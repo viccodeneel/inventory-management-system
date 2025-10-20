@@ -168,22 +168,6 @@ const fetchDashboardData = async () => {
     }
   };
 
-if (loading) {
-    return (
-      <div className="loading-overlay">
-        <div className="loading-container">
-          <div className="loading-spinner">
-            <div className="spinner-ring"></div>
-            <div className="spinner-ring"></div>
-            <div className="spinner-ring"></div>
-          </div>
-          <div className="loading-text">Loading Dashboard...</div>
-          <div className="loading-subtext">Please wait while we fetch dashboard data</div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="dashboard-containerr">
       {/* Sidebar Navigation */}

@@ -390,22 +390,6 @@ const handleBlock = (requestId: number): void => {
     });
   };
 
-  if (loading) {
-    return (
-      <div className="loading-overlay">
-        <div className="loading-container">
-          <div className="loading-spinner">
-            <div className="spinner-ring"></div>
-            <div className="spinner-ring"></div>
-            <div className="spinner-ring"></div>
-          </div>
-          <div className="loading-text">Loading pending requests...</div>
-          <div className="loading-subtext">Please wait while we fetch pending request data</div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="dashboard-container">
       {/* Sidebar Navigation */}

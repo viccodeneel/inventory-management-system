@@ -428,22 +428,6 @@ const formatRole = (role: string): string => {
   return roleMap[role.toLowerCase()] || 'Team Member';
 };
 
-  if (loading) {
-    return (
-      <div className="loading-overlay">
-        <div className="loading-container">
-          <div className="loading-spinner">
-            <div className="spinner-ring"></div>
-            <div className="spinner-ring"></div>
-            <div className="spinner-ring"></div>
-          </div>
-          <div className="loading-text">Loading equipment data...</div>
-          <div className="loading-subtext">Please wait while we fetch available equipment</div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="app-container">
       {/* Logout loading overlay */}
