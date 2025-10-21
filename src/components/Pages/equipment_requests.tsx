@@ -1104,9 +1104,8 @@ const showSuccessModal = (title: string, message: string, type: 'success' | 'err
                 <p><strong>Quantity:</strong> {selectedRequest.equipment_quantity}</p>  
                 <p><strong>Serial Number:</strong> {selectedRequest.equipment_serial_number}</p>
                 <p><strong>Return Date:</strong> {new Date(selectedRequest.expected_return_date).toLocaleDateString()}</p>
-                {selectedRequest.purpose && (
-                  <p><strong>Purpose:</strong> {selectedRequest.purpose}</p>
-                )}
+                  <p><strong>Purpose:</strong> {selectedRequest.notes}</p>
+                
               </div>
               <textarea
                 placeholder="Add approval notes (optional)"
@@ -1156,11 +1155,10 @@ const showSuccessModal = (title: string, message: string, type: 'success' | 'err
                 <p><strong>Request ID:</strong> REQ-{selectedRequest.id.toString().padStart(4, '0')}</p>
                 <p><strong>User:</strong> {selectedRequest.user_name}</p>
                 <p><strong>Equipment:</strong> {selectedRequest.equipment_name}</p>
-                <p><strong>Quantity:</strong> {selectedRequest.quantity}</p>
+                <p><strong>Quantity:</strong> {selectedRequest.equipment_quantity}</p>
                 <p><strong>Serial Number:</strong> {selectedRequest.equipment_serial_number}</p>
-                {selectedRequest.purpose && (
-                  <p><strong>Purpose:</strong> {selectedRequest.purpose}</p>
-                )}
+                  <p><strong>Purpose:</strong> {selectedRequest.notes}</p>
+        
               </div>
               <textarea
                 placeholder="Enter rejection reason..."
@@ -1205,13 +1203,13 @@ const showSuccessModal = (title: string, message: string, type: 'success' | 'err
                 ×
               </button>
             </div>
-            <div className="modal-body">
+            <div className="modal-boooody">
               <p>Please confirm the return of this equipment:</p>
               <div className="request-detaillls">
                 <p><strong>Request ID:</strong> REQ-{selectedRequest.id.toString().padStart(4, '0')}</p>
                 <p><strong>User:</strong> {selectedRequest.user_name}</p>
                 <p><strong>Equipment:</strong> {selectedRequest.equipment_name}</p>
-                <p><strong>Quantity:</strong> {selectedRequest.quantity}</p>
+                <p><strong>Quantity:</strong> {selectedRequest.equipment_quantity}</p>
                 <p><strong>Serial Number:</strong> {selectedRequest.equipment_serial_number}</p>
                 <p><strong>Expected Return:</strong> {new Date(selectedRequest.expected_return_date).toLocaleDateString()}</p>
               </div>
@@ -1252,7 +1250,7 @@ const showSuccessModal = (title: string, message: string, type: 'success' | 'err
                 onClick={confirmReturn}
                 disabled={submitting}
               >
-                {submitting ? 'Processing...' : 'Mark as Returned'}
+                {submitting ? 'Processing...' : 'Confirm Return'}
               </button>
             </div>
           </div>

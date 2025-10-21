@@ -53,6 +53,7 @@ interface AddEquipmentForm {
   purchase_date: string;
   warranty_expiry: string;
   notes: string;
+  available_quantity: number;
   quantity: number;  // New: For adding multiple units
 }
 
@@ -110,7 +111,8 @@ const Inventory: React.FC = () => {
     purchase_date: '',
     warranty_expiry: '',
     notes: '',
-    quantity: 1  // New: Default to 1
+    quantity: 1,  // New: Default to 1
+    available_quantity: 1
   });
 
   const [editForm, setEditForm] = useState<AddEquipmentForm>({
@@ -125,7 +127,8 @@ const Inventory: React.FC = () => {
     purchase_date: '',
     warranty_expiry: '',
     notes: '',
-    quantity: 1  // New: Default to 1
+    quantity: 1,  // New: Default to 1
+    available_quantity: 1
   });
   const [newStatus, setNewStatus] = useState('');
 
@@ -295,7 +298,8 @@ const handleAddEquipment = async (e: React.FormEvent) => {
         purchase_date: '',
         warranty_expiry: '',
         notes: '',
-        quantity: 1
+        quantity: 1,
+        available_quantity: addForm.available_quantity || 1
       });
       setShowAddModal(false);
 
@@ -418,7 +422,8 @@ const handleAddEquipment = async (e: React.FormEvent) => {
       purchase_date: '',
       warranty_expiry: '',
       notes: '',
-       quantity: equipment.quantity || 1
+       quantity: equipment.quantity || 1,
+       available_quantity: equipment.available_quantity || 1
     });
     setShowEditModal(true);
     setOpenDropdown(null);
@@ -1186,7 +1191,7 @@ const handleAddEquipment = async (e: React.FormEvent) => {
                   </div>
 
   <div className="form-group">
-    <label>Quantity *</label>
+    <label>Total Quantity *</label>
     <input
       type="number"
       name="quantity"
@@ -1197,6 +1202,20 @@ const handleAddEquipment = async (e: React.FormEvent) => {
       disabled={submitting}
     />
   </div>
+
+ <div className="form-group">
+    <label>Available Quantity *</label>
+    <input
+      type="number"
+      name="available_quantity"
+      min="1"
+      value={editForm.available_quantity || 1}
+      onChange={handleEditFormChange}
+      required
+      disabled={submitting}
+    />
+  </div>
+
                 </div>
                 
                 <div className="modal-actions">

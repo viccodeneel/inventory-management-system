@@ -559,6 +559,14 @@
   scrollbar-color: #cbd5e1 #f1f5f9;
 }
 
+.modal-boooody{
+   padding: 30px;
+  max-height: calc(90vh - 270px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 #f1f5f9;
+}
+
 .modal-body::-webkit-scrollbar {
   width: 6px;
 }
